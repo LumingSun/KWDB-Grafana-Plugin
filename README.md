@@ -16,7 +16,7 @@ The plugin connects to KWDB through its PostgreSQL-compatible SQL service on por
 
 > 本插件适用于 KaiwuDB 及其开源版本 KWDB，可以在 Grafana 中查询、展示和分析 KWDB 时序数据。
 
-![KWDB TSDB query editor](https://github.com/LumingSun/kwdb-tsdb-datasource/raw/main/src/img/screenshot-query-editor.png)
+![KWDB TSDB query editor](https://github.com/LumingSun/kwdb-tsdb-datasource/raw/master/src/img/screenshot-query-editor.png)
 
 ## Installation
 
@@ -67,7 +67,7 @@ Available query macros:
 - [KaiwuDB official website](https://www.kaiwudb.com)
 - [KWDB source code on GitHub](https://github.com/KWDB/KWDB)
 - [KWDB source code on Gitee](https://gitee.com/kwdb/kwdb)
-- [KWDB documentation](https://www.kaiwudb.com/kaiwudb_docs/#/oss_dev/)
+- [KWDB documentation](https://www.kaiwudb.com)
 - [kwdb-tsdb-datasource repository](https://github.com/LumingSun/kwdb-tsdb-datasource)
 
 ## Getting started
