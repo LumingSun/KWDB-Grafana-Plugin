@@ -1,5 +1,11 @@
 import { expect, test } from '@grafana/plugin-e2e';
 
+const e2eTable = process.env.KWDB_E2E_TABLE ?? 'demo_ts.sensors';
+const e2eColumns = (process.env.KWDB_E2E_COLUMNS ?? 'ts, device_id, temperature')
+  .split(',')
+  .map((column) => column.trim())
+  .filter(Boolean);
+
 test('provisioned KWDB datasource passes health check', async ({ readProvisionedDataSource, page }) => {
   const ds = await readProvisionedDataSource({ fileName: 'datasources.yml' });
   const response = await page.request.get(`/api/datasources/uid/${ds.uid}/health`);
@@ -21,9 +27,9 @@ test('raw SQL query renders KWDB table data', async ({ readProvisionedDataSource
   const editor = page.locator('.monaco-editor textarea').first();
   await editor.click();
   await page.keyboard.press('ControlOrMeta+A');
-  await page.keyboard.type('SELECT ts, charger_id, current_amp FROM ts_db.charger_data LIMIT 3');
+  await page.keyboard.type(`SELECT ${e2eColumns.join(', ')} FROM ${e2eTable} LIMIT 3`);
 
   const response = await panelEditPage.refreshPanel();
   expect(response.ok()).toBeTruthy();
-  await expect(panelEditPage.panel.fieldNames).toContainText(['ts', 'charger_id', 'current_amp']);
+  await expect(panelEditPage.panel.fieldNames).toContainText(e2eColumns);
 });

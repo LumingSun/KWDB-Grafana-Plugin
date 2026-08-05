@@ -16,6 +16,52 @@ The plugin connects to KWDB through its PostgreSQL-compatible SQL service on por
 
 > 本插件适用于 KaiwuDB 及其开源版本 KWDB，可以在 Grafana 中查询、展示和分析 KWDB 时序数据。
 
+![KWDB TSDB query editor](https://github.com/LumingSun/kwdb-tsdb-datasource/raw/main/src/img/screenshot-query-editor.png)
+
+## Installation
+
+- **From the Grafana plugin catalog:** install the plugin from the catalog once
+  it is published, then create a data source of type `KWDB TSDB`.
+- **From a ZIP:** build and sign the plugin, rename `dist` to the plugin ID,
+  create a ZIP, and extract it into Grafana's plugin directory. See
+  [Package a plugin](https://grafana.com/developers/plugin-tools/publish-a-plugin/package-a-plugin)
+  for details.
+
+## Configuration
+
+The data source configuration page accepts the following settings:
+
+| Field | Description |
+| --- | --- |
+| Host | KWDB host, for example `10.0.0.10`. |
+| Port | KWDB PostgreSQL-compatible port, default `26257`. |
+| Database | Database to query, default `defaultdb`. |
+| User | Database user, default `root`. Prefer a read-only account. |
+| SSL Mode | `disable`, `require`, `verify-ca`, or `verify-full`. |
+| SSL Root Cert | Path to the CA certificate used with `verify-ca` / `verify-full`. |
+| Password | Database password, stored in Grafana's secure JSON data. |
+
+## Usage
+
+The query editor supports a visual builder and a raw SQL editor:
+
+- **Downsampling** uses `time_bucket` to aggregate metrics into time buckets.
+- **Gapfill** adds `time_bucket_gapfill` with linear or constant interpolation.
+- **Latest values** returns the latest row per tag set.
+- **Window/Event** supports `TIME_WINDOW`, `SESSION_WINDOW`, `EVENT_WINDOW`,
+  `COUNT_WINDOW`, and `STATE_WINDOW`.
+- **Raw SQL** lets you write `SELECT`, `SHOW`, `EXPLAIN`, or `WITH` statements
+  directly. The backend rejects multiple statements and write keywords.
+
+Time-series output is converted to a wide Grafana frame automatically. Table
+output returns the raw result columns.
+
+Available query macros:
+
+- `$__timeFilter(column)` expands to a timestamp range filter.
+- `$__timeFrom` and `$__timeTo` expand to the dashboard time range.
+- `$__timeGroup(column, 'interval')` expands to `time_bucket`.
+
 ## Related projects
 
 - [KaiwuDB official website](https://www.kaiwudb.com)
@@ -188,27 +234,24 @@ Before signing a plugin for the first time please consult the Grafana [plugin si
 1. Create a [Grafana Cloud account](https://grafana.com/signup).
 2. Make sure that the first part of the plugin ID matches the slug of your Grafana Cloud account.
    - _You can find the plugin ID in the `plugin.json` file inside your plugin directory. For example, if your account slug is `acmecorp`, you need to prefix the plugin ID with `acmecorp-`._
-3. Create a Grafana Cloud API key with the `PluginPublisher` role.
-4. Keep a record of this API key as it will be required for signing a plugin
+3. Create an Access Policy token with the `plugins:write` scope and save it as a
+   GitHub Actions secret named `GRAFANA_ACCESS_POLICY_TOKEN`.
+4. First submissions to the plugin catalog do not require a signature; Grafana
+   assigns a signature level after review. Later versions are signed with
+   `npm run sign`.
 
 ## Signing a plugin
 
 ### Using Github actions release workflow
 
-If the plugin is using the github actions supplied with `@grafana/create-plugin` signing a plugin is included out of the box. The [release workflow](./.github/workflows/release.yml) can prepare everything to make submitting your plugin to Grafana as easy as possible. Before being able to sign the plugin however a secret needs adding to the Github repository.
-
-1. Please navigate to "settings > secrets > actions" within your repo to create secrets.
-2. Click "New repository secret"
-3. Name the secret "GRAFANA_API_KEY"
-4. Paste your Grafana Cloud API key in the Secret field
-5. Click "Add secret"
+If the plugin is using the github actions supplied with `@grafana/create-plugin` signing a plugin is included out of the box. The [release workflow](./.github/workflows/release.yml) builds, signs, and packages the plugin when a `v*` tag is pushed.
 
 #### Push a version tag
 
 To trigger the workflow we need to push a version tag to github. This can be achieved with the following steps:
 
 1. Run `npm version <major|minor|patch>`
-2. Run `git push origin main --follow-tags`
+2. Run `git push origin master --follow-tags`
 
 ## Learn more
 

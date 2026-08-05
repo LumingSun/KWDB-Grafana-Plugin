@@ -1,0 +1,121 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "datasource": {
+        "type": "kaiwudb-kwdbtsdb-datasource",
+        "uid": "kwdb-tsdb"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "showPoints": "never"
+          },
+          "unit": "celsius"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 0
+      },
+      "id": 1,
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "kaiwudb-kwdbtsdb-datasource",
+            "uid": "kwdb-tsdb"
+          },
+          "format": "time_series",
+          "mode": "raw",
+          "rawSql": "SELECT time_bucket(\"ts\", '1m') AS \"time\", avg(\"temperature\") AS \"avg_temperature\" FROM \"sensors\" WHERE \"ts\" >= $__timeFrom AND \"ts\" <= $__timeTo GROUP BY \"time\" ORDER BY \"time\"",
+          "refId": "A"
+        }
+      ],
+      "title": "Average temperature",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "kaiwudb-kwdbtsdb-datasource",
+        "uid": "kwdb-tsdb"
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 0
+      },
+      "id": 2,
+      "options": {
+        "showHeader": true,
+        "sortBy": [
+          {
+            "desc": true,
+            "displayName": "Time"
+          }
+        ]
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "kaiwudb-kwdbtsdb-datasource",
+            "uid": "kwdb-tsdb"
+          },
+          "format": "table",
+          "mode": "raw",
+          "rawSql": "SELECT \"ts\", \"device_id\", \"temperature\", \"humidity\" FROM \"sensors\" ORDER BY \"ts\" DESC LIMIT 100",
+          "refId": "A"
+        }
+      ],
+      "title": "Latest sensor readings",
+      "type": "table"
+    }
+  ],
+  "schemaVersion": 39,
+  "tags": [
+    "kwdb"
+  ],
+  "templating": {
+    "list": []
+  },
+  "time": {
+    "from": "now-30m",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "",
+  "title": "KWDB TSDB Sensors",
+  "uid": "kwdb-sensors-demo",
+  "version": 1,
+  "weekStart": ""
+}

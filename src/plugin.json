@@ -13,17 +13,36 @@
     "minInterval": true
   },
   "info": {
-    "description": "Query and visualize KWDB time-series data through Grafana.",
+    "description": "Connect Grafana to KaiwuDB and KWDB time-series engines. Query, visualize, and analyze time-series data with a visual SQL builder or raw SQL.",
     "author": {
-      "name": "Kaiwudb"
+      "name": "Kaiwudb",
+      "url": "https://www.kaiwudb.com"
     },
-    "keywords": ["datasource"],
+    "keywords": ["datasource", "time series", "TSDB", "SQL", "KWDB", "KaiwuDB"],
     "logos": {
       "small": "img/logo.svg",
       "large": "img/logo.svg"
     },
-    "links": [],
-    "screenshots": [],
+    "links": [
+      {
+        "name": "GitHub",
+        "url": "https://github.com/LumingSun/kwdb-tsdb-datasource"
+      },
+      {
+        "name": "Documentation",
+        "url": "https://www.kaiwudb.com/kaiwudb_docs/#/oss_dev/"
+      },
+      {
+        "name": "Raise issue",
+        "url": "https://github.com/LumingSun/kwdb-tsdb-datasource/issues"
+      }
+    ],
+    "screenshots": [
+      {
+        "name": "KWDB TSDB query editor",
+        "path": "img/screenshot-query-editor.png"
+      }
+    ],
     "version": "%VERSION%",
     "updated": "%TODAY%"
   },
