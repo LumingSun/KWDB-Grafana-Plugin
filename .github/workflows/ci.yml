@@ -190,6 +190,14 @@ jobs:
           docker compose pull
           GRAFANA_PORT=3000 ANONYMOUS_AUTH_ENABLED=false DEVELOPMENT=false GRAFANA_VERSION=${{ matrix.GRAFANA_IMAGE.VERSION }} GRAFANA_IMAGE=${{ matrix.GRAFANA_IMAGE.NAME }} docker compose up -d
 
+      - name: Debug KWDB startup
+        if: always()
+        continue-on-error: true
+        run: |
+          docker ps -a || true
+          docker compose logs kwdb || true
+          docker run --rm --entrypoint /bin/bash kwdb/kwdb -lc 'echo IMAGE_LAYOUT; ls -la /kaiwudb/bin || true; ls -la /kwbase || true; ./kwbase version || /kwbase/kwbase version || true' || true
+
       - name: Wait for grafana server
         uses: grafana/plugin-actions/wait-for-grafana@wait-for-grafana/v1.0.2
         with:
