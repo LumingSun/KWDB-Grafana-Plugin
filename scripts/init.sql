@@ -1,4 +1,6 @@
 -- KWDB demo time-series database and sensor sample data for the Grafana data source.
+-- KWDB does not support NOW() +/- INTERVAL expressions inside INSERT VALUES,
+-- so the seed rows share a single now() timestamp.
 CREATE TS DATABASE IF NOT EXISTS demo_ts;
 
 CREATE TABLE IF NOT EXISTS demo_ts.sensors (
