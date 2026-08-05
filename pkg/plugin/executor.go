@@ -53,7 +53,7 @@ func isAllowedFirstKeyword(sql string) bool {
 	}
 
 	end := strings.IndexFunc(sql, func(r rune) bool {
-		return !(r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || r == '_')
+		return !isIdentRune(r)
 	})
 	if end < 0 {
 		end = len(sql)
@@ -173,6 +173,10 @@ func restIsCommentOrWhitespace(s string) bool {
 
 func isWordByte(c byte) bool {
 	return c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9' || c == '_'
+}
+
+func isIdentRune(r rune) bool {
+	return r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || r == '_'
 }
 
 // ExecuteQuery runs the SQL on the pool and returns the pgx result rows.

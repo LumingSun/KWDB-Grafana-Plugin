@@ -1,50 +1,140 @@
-<!-- This README file is going to be the one displayed on the Grafana.com website for your plugin. Uncomment and replace the content here before publishing.
+# KaiwuDB / KWDB Grafana data source plugin
 
-Remove any remaining comments before publishing as these may be displayed on Grafana.com -->
+This plugin connects [Grafana](https://grafana.com) to KaiwuDB and its open-source edition, KWDB. It executes read-only SQL against the KWDB time-series engine and renders results as Grafana time series or table data.
 
-# Kwdb-Tsdb-Datasource
+![KWDB TSDB query editor](https://github.com/LumingSun/kwdb-tsdb-datasource/raw/master/src/img/screenshot-query-editor.png)
 
-<!-- To help maximize the impact of your README and improve usability for users, we propose the following loose structure:
+> 本插件适用于 KaiwuDB 及其开源版本 KWDB，可以在 Grafana 中查询、展示和分析 KWDB 时序数据。
 
-**BEFORE YOU BEGIN**
-- Ensure all links are absolute URLs so that they will work when the README is displayed within Grafana and Grafana.com
-- Be inspired ✨
-  - [grafana-polystat-panel](https://github.com/grafana/grafana-polystat-panel)
-  - [volkovlabs-variable-panel](https://github.com/volkovlabs/volkovlabs-variable-panel)
+## Features
 
-**ADD SOME BADGES**
-
-Badges convey useful information at a glance for users whether in the Catalog or viewing the source code. You can use the generator on [Shields.io](https://shields.io/badges/dynamic-json-badge) together with the Grafana.com API
-to create dynamic badges that update automatically when you publish a new version to the marketplace.
-
-- For the URL parameter use `https://grafana.com/api/plugins/your-plugin-id`.
-- Example queries:
-  - Downloads: `$.downloads`
-  - Catalog Version: `$.version`
-  - Grafana Dependency: `$.grafanaDependency`
-  - Signature Type: `$.versionSignatureType`
-- Optionally, for the logo parameter use `grafana`.
-
-Full example: ![Dynamic JSON Badge](https://img.shields.io/badge/dynamic/json?logo=grafana&query=$.version&url=https://grafana.com/api/plugins/grafana-polystat-panel&label=Marketplace&prefix=v&color=F47A20)
-
-Consider other [badges](https://shields.io/badges) as you feel appropriate for your project.
-
-## Overview / Introduction
-Provide one or more paragraphs as an introduction to your plugin to help users understand why they should use it.
-
-Consider including screenshots:
-- in [plugin.json](https://grafana.com/developers/plugin-tools/reference/plugin-json#info) include them as relative links.
-- in the README ensure they are absolute URLs.
+- Visual SQL builder for downsampling, gapfill, latest values, and window/event queries, plus a raw SQL editor.
+- Time-series and table output formats with automatic KWDB type conversion.
+- Table and column metadata browsing, including `TIME SERIES TABLE` vs `TABLE` detection.
+- Backend health check, Grafana Alerting, and annotation queries.
+- Read-only query enforcement: only `SELECT`, `SHOW`, `EXPLAIN`, and `WITH` statements are allowed.
+- TLS root certificate support for `verify-ca` and `verify-full`.
+- Result rows are capped at 100,000 per frame with a warning notice on truncation.
 
 ## Requirements
-List any requirements or dependencies they may need to run the plugin.
 
-## Getting Started
-Provide a quick start on how to configure and use the plugin.
+- Grafana 12.3 or newer
+- KWDB or KaiwuDB with a PostgreSQL-compatible endpoint (default port `26257`)
+- A database account with read access; prefer a dedicated read-only account
 
-## Documentation
-If your project has dedicated documentation available for users, provide links here. For help in following Grafana's style recommendations for technical documentation, refer to our [Writer's Toolkit](https://grafana.com/docs/writers-toolkit/).
+## Installation
 
-## Contributing
-Do you want folks to contribute to the plugin or provide feedback through specific means? If so, tell them how!
--->
+- **From the Grafana plugin catalog:** install `lumingsun-kwdbtsdb-datasource` once it is published, then add a `KWDB TSDB` data source.
+- **From a ZIP:** build and sign the plugin, rename `dist` to the plugin ID, create a ZIP, and extract it into Grafana's plugin directory. See the [packaging guide](https://grafana.com/developers/plugin-tools/publish-a-plugin/package-a-plugin).
+
+## Configuration
+
+| Field | Description |
+| --- | --- |
+| Host | KWDB host, for example `10.0.0.10`. |
+| Port | PostgreSQL-compatible port, default `26257`. |
+| Database | Database to query, default `defaultdb`. |
+| User | Database user, default `root`. Prefer a read-only account. |
+| SSL Mode | `disable`, `require`, `verify-ca`, or `verify-full`. |
+| SSL Root Cert | Path to the CA certificate for `verify-ca` / `verify-full`. |
+| Password | Database password, stored in Grafana secure JSON data. |
+
+## Usage
+
+The query editor supports five modes:
+
+- **Downsampling** aggregates metrics with `time_bucket`.
+- **Gapfill** fills time gaps with `time_bucket_gapfill` and interpolation.
+- **Latest values** returns the latest row per tag set.
+- **Window/Event** supports `TIME_WINDOW`, `SESSION_WINDOW`, `EVENT_WINDOW`, `COUNT_WINDOW`, and `STATE_WINDOW`.
+- **Raw SQL** accepts read-only `SELECT`, `SHOW`, `EXPLAIN`, or `WITH` statements.
+
+Available macros:
+
+- `$__timeFilter(column)` expands to a timestamp range filter.
+- `$__timeFrom` and `$__timeTo` expand to the dashboard time range.
+- `$__timeGroup(column, 'interval')` expands to `time_bucket`.
+
+## Development
+
+### Prerequisites
+
+- Node.js 22 (this repository pins it in `.nvmrc`)
+- Go 1.26 or newer
+- Docker and Docker Compose
+- Yarn 1.22.22 via Corepack
+
+### Install, build, and test
+
+```bash
+yarn install --frozen-lockfile
+yarn typecheck
+yarn lint
+yarn test:ci
+yarn build
+```
+
+Backend verification:
+
+```bash
+go test ./pkg/...
+go vet ./pkg/...
+golangci-lint run ./pkg/...
+```
+
+### Local Grafana environment
+
+```bash
+docker compose up -d
+```
+
+Grafana is exposed on `http://localhost:3001` (override with `GRAFANA_PORT`). The compose stack starts KWDB, seeds the `demo_ts.sensors` table, provisions the `KWDB TSDB` data source, and loads the `KWDB TSDB Sensors` demo dashboard.
+
+To point Grafana at an existing KWDB instance:
+
+```bash
+KWDB_HOST=10.110.105.80 KWDB_PORT=26258 KWDB_DATABASE=ts_db \
+  docker compose up -d --no-deps grafana
+```
+
+### End-to-end tests
+
+```bash
+KWDB_E2E_TABLE=demo_ts.sensors yarn e2e
+```
+
+E2E tests live in `tests-e2e/` and default to the provisioned `demo_ts.sensors` table. Override the table, columns, and metric for another environment:
+
+```bash
+KWDB_E2E_TABLE=ts_db.charger_data \
+KWDB_E2E_COLUMNS='ts, charger_id, current_amp, voltage_v' \
+KWDB_E2E_METRIC=voltage_v \
+yarn e2e
+```
+
+The local Playwright config uses the system Chrome installation and expects Grafana on `http://localhost:3001`.
+
+### Cross-platform backend binaries
+
+`mage -v build:backend` only produces Darwin binaries. Build the Linux binary that the Docker container loads:
+
+```bash
+CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build \
+  -o dist/gpx_kwdb_tsdb_datasource_linux_arm64 \
+  -tags arrow_json_stdlib -ldflags '-w -s' ./pkg
+```
+
+The GitHub release workflow builds and packages all platform binaries automatically.
+
+## Publishing
+
+- Plugin ID: `lumingsun-kwdbtsdb-datasource`; it must match the Grafana Cloud organization slug `lumingsun`.
+- First submissions do not require a signature. After review, versions are signed and released through the `Release` GitHub Actions workflow.
+- Add `GRAFANA_ACCESS_POLICY_TOKEN` (Access Policy token with `plugins:write`) to the repository secrets.
+- Run the [plugin validator](https://github.com/grafana/plugin-validator) before submitting.
+
+Full instructions are in the [Grafana plugin publishing guide](https://grafana.com/developers/plugin-tools/publish-a-plugin).
+
+## License
+
+Apache License 2.0. See [LICENSE](LICENSE).

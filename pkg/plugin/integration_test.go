@@ -242,15 +242,6 @@ func verifyLatest(t *testing.T, ctx context.Context, pool *pgxpool.Pool, table s
 	logFrameSummary(t, "LATEST", frame)
 }
 
-func containsString(items []string, target string) bool {
-	for _, item := range items {
-		if item == target {
-			return true
-		}
-	}
-	return false
-}
-
 func containsTable(tables []TableInfo, target string) bool {
 	for _, table := range tables {
 		if table.Name == target {
