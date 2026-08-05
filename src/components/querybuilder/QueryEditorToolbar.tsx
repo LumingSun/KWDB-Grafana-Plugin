@@ -1,0 +1,101 @@
+import React from 'react';
+import { InlineField, Select, Stack } from '@grafana/ui';
+
+import { buildSql } from '../../sqlBuilder';
+import type { KwdbQuery, KwdbQueryFormat, KwdbQueryMode, MetricSpec } from '../../types';
+
+const MODE_OPTIONS: Array<{ label: string; value: KwdbQueryMode }> = [
+  { label: 'Downsampling', value: 'downsampling' },
+  { label: 'Gapfill', value: 'gapfill' },
+  { label: 'Latest Values', value: 'latest' },
+  { label: 'Window/Event', value: 'window' },
+  { label: 'Raw SQL', value: 'raw' },
+];
+
+const FORMAT_OPTIONS: Array<{ label: string; value: KwdbQueryFormat }> = [
+  { label: 'Time series', value: 'time_series' },
+  { label: 'Table', value: 'table' },
+];
+
+function defaultMetric(): MetricSpec {
+  return { column: '', aggregation: 'avg' };
+}
+
+function defaultsForMode(query: KwdbQuery, mode: KwdbQueryMode): Partial<KwdbQuery> {
+  const metrics = query.metrics?.length ? query.metrics : [defaultMetric()];
+  switch (mode) {
+    case 'gapfill':
+      return {
+        mode,
+        interval: query.interval ?? '5m',
+        interpolateMode: query.interpolateMode ?? 'linear',
+        metrics,
+      };
+    case 'latest':
+      return {
+        mode,
+        latestFunc: query.latestFunc ?? 'last',
+        metrics: query.metrics?.length ? query.metrics : [{ column: '', aggregation: 'none' }],
+      };
+    case 'window':
+      return {
+        mode,
+        windowType: query.windowType ?? 'TIME_WINDOW',
+        windowInterval: query.windowInterval ?? '1h',
+        metrics,
+      };
+    case 'raw':
+      return { mode };
+    case 'downsampling':
+    default:
+      return {
+        mode,
+        interval: query.interval ?? '5m',
+        metrics,
+      };
+  }
+}
+
+interface Props {
+  query: KwdbQuery;
+  onChange: (query: KwdbQuery) => void;
+}
+
+export function QueryEditorToolbar({ query, onChange }: Props) {
+  const onModeChange = (mode: KwdbQueryMode) => {
+    const next = { ...query, ...defaultsForMode(query, mode) };
+    if (mode !== 'raw') {
+      next.rawSql = buildSql(next);
+    }
+    onChange(next);
+  };
+
+  const onFormatChange = (format: KwdbQueryFormat) => {
+    onChange({ ...query, format });
+  };
+
+  return (
+    <Stack gap={2}>
+      <InlineField label="Mode" labelWidth={10}>
+        <Select<KwdbQueryMode>
+          aria-label="Mode"
+          options={MODE_OPTIONS}
+          value={query.mode ?? 'downsampling'}
+          onChange={(item) => onModeChange(item.value ?? 'downsampling')}
+          width={24}
+          menuShouldPortal={false}
+        />
+      </InlineField>
+      <InlineField label="Format" labelWidth={10}>
+        <Select<KwdbQueryFormat>
+          aria-label="Format"
+          options={FORMAT_OPTIONS}
+          value={query.format ?? 'time_series'}
+          onChange={(item) => onFormatChange(item.value ?? 'time_series')}
+          width={20}
+          menuShouldPortal={false}
+        />
+      </InlineField>
+    </Stack>
+  );
+}

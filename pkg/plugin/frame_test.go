@@ -1,0 +1,355 @@
+package plugin
+
+import (
+	"math/big"
+	"reflect"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/grafana/grafana-plugin-sdk-go/data"
+	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgx/v5/pgtype"
+)
+
+func TestRowsToFrameTableFormatMapsTypes(t *testing.T) {
+	ts := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	rows := &mockRows{
+		fields: []pgconn.FieldDescription{
+			{Name: "ts", DataTypeOID: 1184},
+			{Name: "device_id", DataTypeOID: 25},
+			{Name: "temperature", DataTypeOID: 701},
+			{Name: "samples", DataTypeOID: 23},
+			{Name: "ok", DataTypeOID: 16},
+			{Name: "extra", DataTypeOID: 9999},
+		},
+		rows: [][]any{
+			{ts, "A", 21.5, int32(3), true, "raw"},
+		},
+	}
+
+	frame, err := RowsToFrame(rows, "table", "", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	wantTypes := []data.FieldType{
+		data.FieldTypeTime,
+		data.FieldTypeString,
+		data.FieldTypeFloat64,
+		data.FieldTypeInt32,
+		data.FieldTypeBool,
+		data.FieldTypeString,
+	}
+	for i, want := range wantTypes {
+		if got := frame.Fields[i].Type(); got != want {
+			t.Errorf("field %d type = %v, want %v", i, got, want)
+		}
+	}
+	if rowLen, err := frame.RowLen(); err != nil || rowLen != 1 {
+		t.Fatalf("RowLen = %d, %v; want 1", rowLen, err)
+	}
+}
+
+func TestRowsToFrameOIDMappings(t *testing.T) {
+	rows := &mockRows{
+		fields: []pgconn.FieldDescription{
+			{Name: "big", DataTypeOID: 20},
+			{Name: "small", DataTypeOID: 21},
+			{Name: "oid_col", DataTypeOID: 26},
+			{Name: "f4", DataTypeOID: 700},
+			{Name: "varchar_col", DataTypeOID: 1043},
+			{Name: "avg_col", DataTypeOID: 1700},
+		},
+		rows: [][]any{
+			{int64(9), int16(2), uint32(7), float32(1.5), "v", pgtype.Numeric{Int: big.NewInt(125), Exp: -1, Valid: true}},
+		},
+	}
+
+	frame, err := RowsToFrame(rows, "table", "", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	wantTypes := []data.FieldType{
+		data.FieldTypeInt64,
+		data.FieldTypeInt64,
+		data.FieldTypeInt32,
+		data.FieldTypeFloat64,
+		data.FieldTypeString,
+		data.FieldTypeFloat64,
+	}
+	for i, want := range wantTypes {
+		if got := frame.Fields[i].Type(); got != want {
+			t.Errorf("field %d type = %v, want %v", i, got, want)
+		}
+	}
+	if got := frame.Fields[5].At(0).(float64); got != 12.5 {
+		t.Errorf("numeric value = %v, want 12.5", got)
+	}
+}
+
+func TestRowsToFrameTimeOID(t *testing.T) {
+	rows := &mockRows{
+		fields: []pgconn.FieldDescription{
+			{Name: "tod", DataTypeOID: 1083},
+			{Name: "value", DataTypeOID: 701},
+		},
+		rows: [][]any{
+			{pgtype.Time{Microseconds: 36_000_000_000, Valid: true}, 1.5},
+		},
+	}
+
+	frame, err := RowsToFrame(rows, "table", "", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := frame.Fields[0].Type(); got != data.FieldTypeTime {
+		t.Fatalf("time column type = %v, want %v", got, data.FieldTypeTime)
+	}
+	if got := frame.Fields[0].At(0).(time.Time); got.Hour() != 10 {
+		t.Errorf("time value = %v, want hour 10", got)
+	}
+}
+
+func TestRowsToFrameTimeSeriesLongToWide(t *testing.T) {
+	t1 := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	t2 := time.Date(2026, 1, 1, 0, 1, 0, 0, time.UTC)
+	rows := &mockRows{
+		fields: []pgconn.FieldDescription{
+			{Name: "ts", DataTypeOID: 1184},
+			{Name: "device_id", DataTypeOID: 25},
+			{Name: "temperature", DataTypeOID: 701},
+		},
+		rows: [][]any{
+			{t2, "A", 20.0},
+			{t1, "A", 10.0},
+			{t2, "B", 30.0},
+			{t1, "B", 5.0},
+		},
+	}
+
+	frame, err := RowsToFrame(rows, "time_series", "ts", []string{"device_id"})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if got := frame.Fields[0].Name; got != "time" {
+		t.Fatalf("first field name = %q, want time", got)
+	}
+	if got := frame.Fields[0].At(0).(time.Time); !got.Equal(t1) {
+		t.Errorf("first time = %v, want %v", got, t1)
+	}
+	if got := frame.Fields[0].At(1).(time.Time); !got.Equal(t2) {
+		t.Errorf("second time = %v, want %v", got, t2)
+	}
+
+	byLabel := map[string]*data.Field{}
+	for _, field := range frame.Fields[1:] {
+		byLabel[field.Labels["device_id"]] = field
+	}
+	if field := byLabel["A"]; field == nil || field.At(0).(float64) != 10.0 || field.At(1).(float64) != 20.0 {
+		t.Errorf("device A field missing or unsorted: %#v", field)
+	}
+	if field := byLabel["B"]; field == nil || field.At(0).(float64) != 5.0 || field.At(1).(float64) != 30.0 {
+		t.Errorf("device B field missing or unsorted: %#v", field)
+	}
+}
+
+func TestRowsToFrameTimeSeriesNumericTagBecomesLabel(t *testing.T) {
+	t1 := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	t2 := time.Date(2026, 1, 1, 0, 1, 0, 0, time.UTC)
+	rows := &mockRows{
+		fields: []pgconn.FieldDescription{
+			{Name: "ts", DataTypeOID: 1184},
+			{Name: "device_id", DataTypeOID: 23},
+			{Name: "temperature", DataTypeOID: 701},
+		},
+		rows: [][]any{
+			{t2, int32(1), 20.0},
+			{t1, int32(1), 10.0},
+			{t2, int32(2), 30.0},
+			{t1, int32(2), 5.0},
+		},
+	}
+
+	frame, err := RowsToFrame(rows, "time_series", "ts", []string{"device_id"})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	byLabel := map[string]*data.Field{}
+	for _, field := range frame.Fields[1:] {
+		byLabel[field.Labels["device_id"]] = field
+	}
+	if len(byLabel) != 2 {
+		t.Fatalf("got %d series, want 2: %#v", len(byLabel), byLabel)
+	}
+	if field := byLabel["1"]; field == nil || field.At(0).(float64) != 10.0 || field.At(1).(float64) != 20.0 {
+		t.Errorf("device 1 field missing or unsorted: %#v", field)
+	}
+	if field := byLabel["2"]; field == nil || field.At(0).(float64) != 5.0 || field.At(1).(float64) != 30.0 {
+		t.Errorf("device 2 field missing or unsorted: %#v", field)
+	}
+}
+
+func TestRowsToFrameFallsBackToTimestampColumn(t *testing.T) {
+	ts := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	rows := &mockRows{
+		fields: []pgconn.FieldDescription{
+			{Name: "k_timestamp", DataTypeOID: 1114},
+			{Name: "value", DataTypeOID: 701},
+		},
+		rows: [][]any{
+			{ts, 1.5},
+		},
+	}
+
+	frame, err := RowsToFrame(rows, "time_series", "", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := frame.Fields[0].Name; got != "time" {
+		t.Errorf("fallback time field name = %q, want time", got)
+	}
+}
+
+func TestRowsToFrameMissingTimeColumn(t *testing.T) {
+	rows := &mockRows{
+		fields: []pgconn.FieldDescription{
+			{Name: "device_id", DataTypeOID: 25},
+			{Name: "temperature", DataTypeOID: 701},
+		},
+		rows: [][]any{
+			{"A", 20.0},
+		},
+	}
+
+	_, err := RowsToFrame(rows, "time_series", "", nil)
+	if err == nil || !strings.Contains(err.Error(), "time column") {
+		t.Fatalf("expected time column error, got %v", err)
+	}
+}
+
+func TestRowsToFrameEmptyTimeSeries(t *testing.T) {
+	rows := &mockRows{
+		fields: []pgconn.FieldDescription{
+			{Name: "ts", DataTypeOID: 1184},
+			{Name: "value", DataTypeOID: 701},
+		},
+	}
+
+	frame, err := RowsToFrame(rows, "time_series", "", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := frame.Fields[0].Name; got != "time" {
+		t.Errorf("empty time series first field = %q, want time", got)
+	}
+	if rowLen, err := frame.RowLen(); err != nil || rowLen != 0 {
+		t.Fatalf("RowLen = %d, %v; want 0", rowLen, err)
+	}
+}
+
+func TestRowsToFrameTableFormatNulls(t *testing.T) {
+	rows := &mockRows{
+		fields: []pgconn.FieldDescription{
+			{Name: "ts", DataTypeOID: 1184},
+			{Name: "device_id", DataTypeOID: 25},
+			{Name: "temperature", DataTypeOID: 701},
+			{Name: "samples", DataTypeOID: 23},
+			{Name: "ok", DataTypeOID: 16},
+		},
+		rows: [][]any{
+			{nil, nil, nil, nil, nil},
+			{time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC), "A", 21.5, int32(3), true},
+		},
+	}
+
+	frame, err := RowsToFrame(rows, "table", "", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	wantTypes := []data.FieldType{
+		data.FieldTypeNullableTime,
+		data.FieldTypeNullableString,
+		data.FieldTypeNullableFloat64,
+		data.FieldTypeNullableInt32,
+		data.FieldTypeNullableBool,
+	}
+	for i, want := range wantTypes {
+		if got := frame.Fields[i].Type(); got != want {
+			t.Errorf("field %d type = %v, want %v", i, got, want)
+		}
+	}
+	for i := range wantTypes {
+		if got := frame.Fields[i].At(0); !isNilValue(got) {
+			t.Errorf("field %d first value = %#v, want nil", i, got)
+		}
+	}
+	if got := frame.Fields[2].At(1).(*float64); got == nil || *got != 21.5 {
+		t.Errorf("temperature second value = %#v, want 21.5", got)
+	}
+}
+
+func TestRowsToFrameTimeSeriesWithNulls(t *testing.T) {
+	t1 := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	t2 := time.Date(2026, 1, 1, 0, 1, 0, 0, time.UTC)
+	rows := &mockRows{
+		fields: []pgconn.FieldDescription{
+			{Name: "ts", DataTypeOID: 1184},
+			{Name: "device_id", DataTypeOID: 25},
+			{Name: "temperature", DataTypeOID: 701},
+		},
+		rows: [][]any{
+			{t1, "A", 10.0},
+			{t2, "A", nil},
+			{t1, "B", nil},
+			{t2, "B", 30.0},
+		},
+	}
+
+	frame, err := RowsToFrame(rows, "time_series", "ts", []string{"device_id"})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	byLabel := map[string]*data.Field{}
+	for _, field := range frame.Fields[1:] {
+		byLabel[field.Labels["device_id"]] = field
+	}
+	fieldA := byLabel["A"]
+	if fieldA == nil {
+		t.Fatal("device A field missing")
+	}
+	if got := fieldA.At(0).(*float64); got == nil || *got != 10.0 {
+		t.Errorf("device A first value = %#v, want 10.0", got)
+	}
+	if got := fieldA.At(1); !isNilValue(got) {
+		t.Errorf("device A second value = %#v, want nil", got)
+	}
+	fieldB := byLabel["B"]
+	if fieldB == nil {
+		t.Fatal("device B field missing")
+	}
+	if got := fieldB.At(0); !isNilValue(got) {
+		t.Errorf("device B first value = %#v, want nil", got)
+	}
+	if got := fieldB.At(1).(*float64); got == nil || *got != 30.0 {
+		t.Errorf("device B second value = %#v, want 30.0", got)
+	}
+}
+
+func isNilValue(v any) bool {
+	if v == nil {
+		return true
+	}
+	rv := reflect.ValueOf(v)
+	switch rv.Kind() {
+	case reflect.Ptr, reflect.Map, reflect.Slice, reflect.Func, reflect.Interface, reflect.Chan:
+		return rv.IsNil()
+	default:
+		return false
+	}
+}

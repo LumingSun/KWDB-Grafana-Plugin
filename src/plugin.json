@@ -1,0 +1,28 @@
+{
+  "$schema": "https://raw.githubusercontent.com/grafana/grafana/main/docs/sources/developers/plugins/plugin.schema.json",
+  "type": "datasource",
+  "name": "KWDB TSDB",
+  "id": "kaiwudb-kwdbtsdb-datasource",
+  "metrics": true,
+  "backend": true,
+  "executable": "gpx_kwdb_tsdb_datasource",
+  "info": {
+    "description": "Query and visualize KWDB time-series data through Grafana.",
+    "author": {
+      "name": "Kaiwudb"
+    },
+    "keywords": ["datasource"],
+    "logos": {
+      "small": "img/logo.svg",
+      "large": "img/logo.svg"
+    },
+    "links": [],
+    "screenshots": [],
+    "version": "%VERSION%",
+    "updated": "%TODAY%"
+  },
+  "dependencies": {
+    "grafanaDependency": ">=12.3.0",
+    "plugins": []
+  }
+}

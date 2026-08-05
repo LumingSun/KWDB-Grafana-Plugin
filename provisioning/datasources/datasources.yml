@@ -1,0 +1,19 @@
+apiVersion: 1
+
+datasources:
+  - name: 'KWDB TSDB'
+    type: 'kaiwudb-kwdbtsdb-datasource'
+    uid: 'kwdb-tsdb'
+    access: proxy
+    isDefault: true
+    orgId: 1
+    version: 1
+    editable: true
+    jsonData:
+      host: '$KWDB_HOST'
+      port: $KWDB_PORT
+      database: '$KWDB_DATABASE'
+      user: '$KWDB_USER'
+      sslMode: 'disable'
+    secureJsonData:
+      password: '$KWDB_PASSWORD'

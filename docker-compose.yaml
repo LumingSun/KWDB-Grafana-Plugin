@@ -1,0 +1,44 @@
+services:
+  kwdb:
+    image: kwdb/kwdb
+    privileged: true
+    ipc: shareable
+    working_dir: /kaiwudb/bin
+    environment:
+      LD_LIBRARY_PATH: /kaiwudb/lib
+    entrypoint: ['/bin/bash']
+    command: ['/docker-entrypoint-initdb.d/init.sh']
+    ports:
+      - '26257:26257'
+      - '8080:8080'
+    ulimits:
+      memlock: -1
+      nofile: 1048576
+    volumes:
+      - kwdb-data:/kaiwudb/deploy/kaiwudb-container
+      - ./scripts:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ['CMD-SHELL', "./kwbase sql --insecure --host=127.0.0.1:26257 -e 'SELECT 1' >/dev/null 2>&1"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 10s
+
+  grafana:
+    extends:
+      file: .config/docker-compose-base.yaml
+      service: grafana
+    ports: !override
+      - '${GRAFANA_PORT:-3001}:3000'
+    depends_on:
+      kwdb:
+        condition: service_healthy
+    environment:
+      KWDB_HOST: ${KWDB_HOST:-kwdb}
+      KWDB_PORT: ${KWDB_PORT:-26257}
+      KWDB_DATABASE: ${KWDB_DATABASE:-demo_ts}
+      KWDB_USER: ${KWDB_USER:-root}
+      KWDB_PASSWORD: ${KWDB_PASSWORD:-}
+
+volumes:
+  kwdb-data:
