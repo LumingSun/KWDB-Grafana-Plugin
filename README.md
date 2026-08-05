@@ -1,10 +1,18 @@
-# Grafana data source plugin template
+# KaiwuDB / KWDB Grafana data source plugin
 
-This template is a starting point for building a Data Source Plugin for Grafana.
+This project is a Grafana data source plugin for [KaiwuDB](https://www.kaiwudb.com) and its open-source edition, KWDB. KWDB is the open-source version of KaiwuDB, and this plugin lets you query, visualize, and analyze KWDB time-series data directly in Grafana.
 
-## What are Grafana data source plugins?
+The plugin connects to KWDB through its PostgreSQL-compatible SQL service on port `26257`, executes read-only SQL queries, and converts the results into Grafana time series or table data frames.
 
-Grafana supports a wide range of data sources, including Prometheus, MySQL, and even Datadog. There’s a good chance you can already visualize metrics from the systems you have set up. In some cases, though, you already have an in-house metrics solution that you’d like to add to your Grafana dashboards. Grafana Data Source Plugins enables integrating such solutions with Grafana.
+> 本插件适用于 KaiwuDB 及其开源版本 KWDB，可以在 Grafana 中查询、展示和分析 KWDB 时序数据。
+
+## Related projects
+
+- [KaiwuDB official website](https://www.kaiwudb.com)
+- [KWDB source code on GitHub](https://github.com/KWDB/KWDB)
+- [KWDB source code on Gitee](https://gitee.com/kwdb/kwdb)
+- [KWDB documentation](https://www.kaiwudb.com/kaiwudb_docs/#/oss_dev/)
+- [kwdb-tsdb-datasource repository](https://github.com/LumingSun/kwdb-tsdb-datasource)
 
 ## Getting started
 
