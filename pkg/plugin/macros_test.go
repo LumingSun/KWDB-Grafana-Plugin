@@ -58,3 +58,15 @@ func TestExpandMacros(t *testing.T) {
 		})
 	}
 }
+
+func TestExpandMacrosKeepsSubsecondPrecision(t *testing.T) {
+	tr := backend.TimeRange{
+		From: time.Date(2026, 1, 1, 0, 0, 0, 123456789, time.UTC),
+		To:   time.Date(2026, 1, 1, 0, 0, 1, 987654321, time.UTC),
+	}
+	got := ExpandMacros("SELECT $__timeFrom AS start, $__timeTo AS end", tr)
+	want := "SELECT '2026-01-01 00:00:00.123456789'::TIMESTAMP AS start, '2026-01-01 00:00:01.987654321'::TIMESTAMP AS end"
+	if got != want {
+		t.Errorf("ExpandMacros() = %q, want %q", got, want)
+	}
+}

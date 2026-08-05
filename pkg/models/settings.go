@@ -9,11 +9,12 @@ import (
 
 // DataSourceSettings holds the non-secret KWDB connection options stored in jsonData.
 type DataSourceSettings struct {
-	Host     string `json:"host"`
-	Port     int    `json:"port"`
-	Database string `json:"database"`
-	User     string `json:"user"`
-	SSLMode  string `json:"sslMode"`
+	Host        string `json:"host"`
+	Port        int    `json:"port"`
+	Database    string `json:"database"`
+	User        string `json:"user"`
+	SSLMode     string `json:"sslMode"`
+	SSLRootCert string `json:"sslRootCert"`
 }
 
 // SecretDataSourceSettings holds the password from DecryptedSecureJSONData.

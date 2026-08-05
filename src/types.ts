@@ -48,6 +48,7 @@ export interface KwdbDataSourceOptions extends DataSourceJsonData {
   database?: string;
   user?: string;
   sslMode?: 'disable' | 'require' | 'verify-ca' | 'verify-full';
+  sslRootCert?: string;
 }
 
 export interface KwdbSecureJsonData {
@@ -60,4 +61,9 @@ export interface ColumnInfo {
   isTag: boolean;
   isTimeColumn: boolean;
   isPrimaryTag: boolean;
+}
+
+export interface TableInfo {
+  name: string;
+  type: string;
 }

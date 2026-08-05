@@ -37,7 +37,7 @@ const BASE_QUERY: KwdbQuery = {
 
 function makeDatasource(): KwdbDataSource {
   return {
-    getTables: jest.fn().mockResolvedValue(['sensors']),
+    getTables: jest.fn().mockResolvedValue([{ name: 'sensors', type: 'TIME SERIES TABLE' }]),
     getColumns: jest.fn().mockResolvedValue(COLUMNS),
   } as unknown as KwdbDataSource;
 }

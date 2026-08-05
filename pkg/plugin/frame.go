@@ -30,8 +30,15 @@ type columnPlan struct {
 	labels data.Labels
 }
 
+// DefaultMaxRows caps the number of rows buffered into a single frame.
+const DefaultMaxRows = 100000
+
 // RowsToFrame converts pgx result rows into a Grafana Data Frame.
 func RowsToFrame(rows pgx.Rows, format string, timeColumn string, tags []string) (*data.Frame, error) {
+	return rowsToFrame(rows, format, timeColumn, tags, DefaultMaxRows)
+}
+
+func rowsToFrame(rows pgx.Rows, format string, timeColumn string, tags []string, maxRows int) (*data.Frame, error) {
 	defer rows.Close()
 
 	descriptions := rows.FieldDescriptions()
@@ -44,7 +51,13 @@ func RowsToFrame(rows pgx.Rows, format string, timeColumn string, tags []string)
 		}
 	}
 
+	truncated := false
+	rowCount := 0
 	for rows.Next() {
+		if maxRows > 0 && rowCount >= maxRows {
+			truncated = true
+			break
+		}
 		values, err := rows.Values()
 		if err != nil {
 			return nil, err
@@ -59,6 +72,7 @@ func RowsToFrame(rows pgx.Rows, format string, timeColumn string, tags []string)
 			}
 			plans[i].values = append(plans[i].values, value)
 		}
+		rowCount++
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
@@ -85,14 +99,37 @@ func RowsToFrame(rows pgx.Rows, format string, timeColumn string, tags []string)
 		}
 		switch frame.TimeSeriesSchema().Type {
 		case data.TimeSeriesTypeLong:
-			return data.LongToWide(frame, nil)
+			wide, err := data.LongToWide(frame, nil)
+			if err != nil {
+				return nil, err
+			}
+			if truncated {
+				applyMaxRowsNotice(wide, maxRows)
+			}
+			return wide, nil
 		case data.TimeSeriesTypeWide:
+			if truncated {
+				applyMaxRowsNotice(frame, maxRows)
+			}
 			return frame, nil
 		default:
 			return nil, fmt.Errorf("could not convert frame to time series")
 		}
 	}
+	if truncated {
+		applyMaxRowsNotice(frame, maxRows)
+	}
 	return frame, nil
+}
+
+func applyMaxRowsNotice(frame *data.Frame, maxRows int) {
+	if frame.Meta == nil {
+		frame.Meta = &data.FrameMeta{}
+	}
+	frame.Meta.Notices = append(frame.Meta.Notices, data.Notice{
+		Severity: data.NoticeSeverityWarning,
+		Text:     fmt.Sprintf("Query result was truncated at %d rows; add LIMIT or narrow the time range", maxRows),
+	})
 }
 
 func kindForOID(oid uint32) columnKind {

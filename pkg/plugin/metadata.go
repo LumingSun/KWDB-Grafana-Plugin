@@ -22,6 +22,12 @@ type ColumnInfo struct {
 	IsPrimaryTag bool   `json:"isPrimaryTag"`
 }
 
+// TableInfo describes one table returned by SHOW TABLES.
+type TableInfo struct {
+	Name string `json:"name"`
+	Type string `json:"type"`
+}
+
 type rowQuerier interface {
 	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
 }
@@ -52,7 +58,7 @@ func (h *metadataHandler) handleTables(w http.ResponseWriter, r *http.Request) {
 	}
 	defer rows.Close()
 
-	var tables []string
+	var tables []TableInfo
 	for rows.Next() {
 		values, err := rows.Values()
 		if err != nil {
@@ -60,7 +66,11 @@ func (h *metadataHandler) handleTables(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if len(values) > 0 {
-			tables = append(tables, fmt.Sprint(values[0]))
+			info := TableInfo{Name: fmt.Sprint(values[0])}
+			if len(values) > 1 {
+				info.Type = fmt.Sprint(values[1])
+			}
+			tables = append(tables, info)
 		}
 	}
 	if err := rows.Err(); err != nil {

@@ -6,6 +6,7 @@ import (
 	"net"
 	"net/url"
 	"strconv"
+	"time"
 
 	"github.com/grafana/grafana-plugin-sdk-go/backend"
 	"github.com/grafana/grafana-plugin-sdk-go/backend/instancemgmt"
@@ -19,6 +20,12 @@ const (
 	defaultDatabase = "defaultdb"
 	defaultUser     = "root"
 	defaultSSLMode  = "disable"
+
+	poolMaxConns        = 8
+	poolMinConns        = 0
+	poolMaxConnLifetime = time.Hour
+	poolMaxConnIdleTime = 15 * time.Minute
+	poolConnectTimeout  = 5 * time.Second
 )
 
 // NewDatasource creates a datasource instance with a KWDB pgx connection pool.
@@ -29,7 +36,17 @@ func NewDatasource(ctx context.Context, settings backend.DataSourceInstanceSetti
 	}
 	applyDefaults(cfg)
 
-	pool, err := pgxpool.New(ctx, buildConnString(*cfg, secrets.Password))
+	poolCfg, err := pgxpool.ParseConfig(buildConnString(*cfg, secrets.Password))
+	if err != nil {
+		return nil, fmt.Errorf("could not parse pgx connection string: %w", err)
+	}
+	poolCfg.MaxConns = poolMaxConns
+	poolCfg.MinConns = poolMinConns
+	poolCfg.MaxConnLifetime = poolMaxConnLifetime
+	poolCfg.MaxConnIdleTime = poolMaxConnIdleTime
+	poolCfg.ConnConfig.ConnectTimeout = poolConnectTimeout
+
+	pool, err := pgxpool.NewWithConfig(ctx, poolCfg)
 	if err != nil {
 		return nil, fmt.Errorf("could not create pgx connection pool: %w", err)
 	}
@@ -67,6 +84,9 @@ func buildConnString(cfg models.DataSourceSettings, password string) string {
 	}
 	query := u.Query()
 	query.Set("sslmode", cfg.SSLMode)
+	if cfg.SSLRootCert != "" {
+		query.Set("sslrootcert", cfg.SSLRootCert)
+	}
 	u.RawQuery = query.Encode()
 	return u.String()
 }

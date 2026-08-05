@@ -48,6 +48,10 @@ export function ConfigEditor(props: Props) {
     updateJsonData({ sslMode: sslMode ?? 'disable' });
   };
 
+  const onSslRootCertChange = (event: ChangeEvent<HTMLInputElement>) => {
+    updateJsonData({ sslRootCert: event.target.value });
+  };
+
   const onPasswordChange = (event: ChangeEvent<HTMLInputElement>) => {
     onOptionsChange({
       ...options,
@@ -113,6 +117,15 @@ export function ConfigEditor(props: Props) {
           onChange={(item) => onSslModeChange(item.value)}
           width={40}
           menuShouldPortal={false}
+        />
+      </InlineField>
+      <InlineField label="SSL Root Cert" labelWidth={14}>
+        <Input
+          id="config-editor-ssl-root-cert"
+          onChange={onSslRootCertChange}
+          value={jsonData.sslRootCert ?? ''}
+          placeholder="/path/to/ca.crt"
+          width={40}
         />
       </InlineField>
       <InlineField label="Password" labelWidth={14}>

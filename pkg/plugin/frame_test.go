@@ -89,6 +89,35 @@ func TestRowsToFrameOIDMappings(t *testing.T) {
 	}
 }
 
+func TestRowsToFrameTruncatesAtMaxRows(t *testing.T) {
+	rows := &mockRows{
+		fields: []pgconn.FieldDescription{{Name: "value", DataTypeOID: 701}},
+		rows: [][]any{
+			{1.0},
+			{2.0},
+			{3.0},
+		},
+	}
+
+	frame, err := rowsToFrame(rows, "table", "", nil, 2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rowLen, err := frame.RowLen()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if rowLen != 2 {
+		t.Fatalf("RowLen = %d, want 2", rowLen)
+	}
+	if frame.Meta == nil || len(frame.Meta.Notices) == 0 {
+		t.Fatal("expected a truncation notice in frame meta")
+	}
+	if !strings.Contains(frame.Meta.Notices[0].Text, "truncated at 2 rows") {
+		t.Errorf("notice text = %q, want truncation message", frame.Meta.Notices[0].Text)
+	}
+}
+
 func TestRowsToFrameTimeOID(t *testing.T) {
 	rows := &mockRows{
 		fields: []pgconn.FieldDescription{

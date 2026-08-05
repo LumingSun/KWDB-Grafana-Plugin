@@ -4,8 +4,14 @@
   "name": "KWDB TSDB",
   "id": "kaiwudb-kwdbtsdb-datasource",
   "metrics": true,
+  "alerting": true,
+  "annotations": true,
   "backend": true,
   "executable": "gpx_kwdb_tsdb_datasource",
+  "queryOptions": {
+    "maxDataPoints": true,
+    "minInterval": true
+  },
   "info": {
     "description": "Query and visualize KWDB time-series data through Grafana.",
     "author": {

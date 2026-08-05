@@ -1,14 +1,14 @@
 import { CoreApp, DataSourceInstanceSettings } from '@grafana/data';
 import { DataSourceWithBackend } from '@grafana/runtime';
 
-import { ColumnInfo, DEFAULT_QUERY, KwdbDataSourceOptions, KwdbQuery } from './types';
+import { ColumnInfo, DEFAULT_QUERY, KwdbDataSourceOptions, KwdbQuery, TableInfo } from './types';
 
 export class KwdbDataSource extends DataSourceWithBackend<KwdbQuery, KwdbDataSourceOptions> {
   constructor(instanceSettings: DataSourceInstanceSettings<KwdbDataSourceOptions>) {
     super(instanceSettings);
   }
 
-  getTables(): Promise<string[]> {
+  getTables(): Promise<TableInfo[]> {
     return this.getResource('/tables');
   }
 
@@ -19,6 +19,8 @@ export class KwdbDataSource extends DataSourceWithBackend<KwdbQuery, KwdbDataSou
   getDefaultQuery(_: CoreApp): Partial<KwdbQuery> {
     return { ...DEFAULT_QUERY };
   }
+
+  annotations = {};
 
   filterQuery(query: KwdbQuery): boolean {
     if (query.mode === 'raw') {

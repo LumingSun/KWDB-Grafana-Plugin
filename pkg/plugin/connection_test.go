@@ -60,3 +60,18 @@ func TestBuildConnString(t *testing.T) {
 		}
 	}
 }
+
+func TestBuildConnStringIncludesSSLRootCert(t *testing.T) {
+	cfg := models.DataSourceSettings{
+		Host:        "db.example.com",
+		Port:        26257,
+		Database:    "ts_db",
+		User:        "root",
+		SSLMode:     "verify-ca",
+		SSLRootCert: "/etc/certs/ca.pem",
+	}
+	dsn := buildConnString(cfg, "secret")
+	if !strings.Contains(dsn, "sslrootcert=%2Fetc%2Fcerts%2Fca.pem") {
+		t.Errorf("DSN %q does not contain encoded sslrootcert", dsn)
+	}
+}

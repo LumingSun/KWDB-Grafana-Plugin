@@ -4,6 +4,16 @@ This project is a Grafana data source plugin for [KaiwuDB](https://www.kaiwudb.c
 
 The plugin connects to KWDB through its PostgreSQL-compatible SQL service on port `26257`, executes read-only SQL queries, and converts the results into Grafana time series or table data frames.
 
+## Plugin capabilities
+
+- Visual SQL builder for downsampling, gapfill, latest values, window/event queries, plus a raw SQL mode.
+- Time-series and table output formats with automatic KWDB type to Grafana Data Frame conversion.
+- Metadata resources for listing tables and columns, with table type (`TIME SERIES TABLE` vs `TABLE`) surfaced in the query editor.
+- Backend health check, Grafana Alerting, and annotation queries.
+- Read-only query enforcement: only `SELECT`, `SHOW`, `EXPLAIN`, and `WITH` statements are allowed; multiple statements and write keywords are rejected.
+- Configurable TLS root certificate for `verify-ca` / `verify-full` SSL modes.
+- Result rows are capped at 100,000 per frame and a warning notice is attached when truncation happens.
+
 > 本插件适用于 KaiwuDB 及其开源版本 KWDB，可以在 Grafana 中查询、展示和分析 KWDB 时序数据。
 
 ## Related projects
@@ -79,12 +89,17 @@ The plugin connects to KWDB through its PostgreSQL-compatible SQL service on por
    # Spins up a Grafana instance first that we tests against
    npm run server
 
-   # If you wish to start a certain Grafana version. If not specified will use latest by default
-   GRAFANA_VERSION=11.3.0 npm run server
+   # If you wish to start a certain Grafana version. The dev environment is tested on 13.1.0
+   GRAFANA_VERSION=13.1.0 npm run server
 
    # Starts the tests
    npm run e2e
    ```
+
+   E2E tests live in `tests-e2e/` and use `@grafana/plugin-e2e`. They expect
+   Grafana on `http://localhost:3001` (or `GRAFANA_URL`) and use the system
+   Chrome installation (`channel: 'chrome'`) instead of a downloaded Playwright
+   browser.
 
 7. Run the linter
 
@@ -110,6 +125,10 @@ docker compose up -d
 ```bash
 GRAFANA_PORT=3000 docker compose up -d
 ```
+
+The compose stack disables Grafana 13's `dashboardNewLayouts` feature toggle
+(`GF_FEATURE_TOGGLES_dashboardNewLayouts=false`) because the current
+`@grafana/plugin-e2e` panel editor flow is not compatible with that layout.
 
 On the first start, `scripts/init.sh` waits for KWDB to accept connections and
 applies `scripts/init.sql`, which creates the `demo_ts` time-series database and

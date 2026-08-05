@@ -34,6 +34,7 @@ describe('ConfigEditor', () => {
     expect(screen.getByLabelText('Database')).toBeInTheDocument();
     expect(screen.getByLabelText('User')).toBeInTheDocument();
     expect(screen.getByLabelText('SSL Mode')).toBeInTheDocument();
+    expect(screen.getByLabelText('SSL Root Cert')).toBeInTheDocument();
     expect(screen.getByLabelText('Password')).toBeInTheDocument();
   });
 
@@ -67,6 +68,15 @@ describe('ConfigEditor', () => {
     fireEvent.change(screen.getByLabelText('Password'), { target: { value: 's3cret' } });
     expect(onOptionsChange).toHaveBeenCalledWith(
       expect.objectContaining({ secureJsonData: expect.objectContaining({ password: 's3cret' }) })
+    );
+  });
+
+  it('updates sslRootCert through the input', () => {
+    const { onOptionsChange } = renderConfig();
+
+    fireEvent.change(screen.getByLabelText('SSL Root Cert'), { target: { value: '/etc/certs/ca.pem' } });
+    expect(onOptionsChange).toHaveBeenLastCalledWith(
+      expect.objectContaining({ jsonData: expect.objectContaining({ sslRootCert: '/etc/certs/ca.pem' }) })
     );
   });
 

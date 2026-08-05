@@ -39,6 +39,7 @@ services:
       KWDB_DATABASE: ${KWDB_DATABASE:-demo_ts}
       KWDB_USER: ${KWDB_USER:-root}
       KWDB_PASSWORD: ${KWDB_PASSWORD:-}
+      GF_FEATURE_TOGGLES_dashboardNewLayouts: 'false'
 
 volumes:
   kwdb-data:

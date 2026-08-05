@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Select } from '@grafana/ui';
 
 import type { KwdbDataSource } from '../../../datasource';
+import type { TableInfo } from '../../../types';
 
 interface Props {
   datasource: KwdbDataSource;
@@ -10,7 +11,7 @@ interface Props {
 }
 
 export function TableSelector({ datasource, value, onChange }: Props) {
-  const [state, setState] = useState<{ tables: string[]; loading: boolean }>({ tables: [], loading: true });
+  const [state, setState] = useState<{ tables: TableInfo[]; loading: boolean }>({ tables: [], loading: true });
 
   useEffect(() => {
     let cancelled = false;
@@ -31,14 +32,18 @@ export function TableSelector({ datasource, value, onChange }: Props) {
     };
   }, [datasource]);
 
-  const options = state.tables.map((table) => ({ label: table, value: table }));
+  const options = state.tables.map((table) => ({
+    label: table.type ? `${table.name} (${table.type})` : table.name,
+    value: table.name,
+  }));
+  const selected = state.tables.find((table) => table.name === value);
 
   return (
     <Select<string>
       aria-label="Table"
       isLoading={state.loading}
       options={options}
-      value={value ? { label: value, value } : undefined}
+      value={value ? { label: selected ? (selected.type ? `${selected.name} (${selected.type})` : selected.name) : value, value } : undefined}
       onChange={(item) => onChange(item.value ?? '')}
       placeholder="Select table"
       isClearable

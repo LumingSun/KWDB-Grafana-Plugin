@@ -86,11 +86,11 @@ func verifyMetadataResources(t *testing.T, pool *pgxpool.Pool, table string) {
 	if tablesResp.Status != 200 {
 		t.Fatalf("GET /tables status = %d, body = %s", tablesResp.Status, tablesResp.Body)
 	}
-	var tables []string
+	var tables []TableInfo
 	if err := json.Unmarshal(tablesResp.Body, &tables); err != nil {
 		t.Fatal(err)
 	}
-	if !containsString(tables, table) {
+	if !containsTable(tables, table) {
 		t.Fatalf("temp table %s not listed: %v", table, tables)
 	}
 	t.Logf("TABLES contain %s", table)
@@ -245,6 +245,15 @@ func verifyLatest(t *testing.T, ctx context.Context, pool *pgxpool.Pool, table s
 func containsString(items []string, target string) bool {
 	for _, item := range items {
 		if item == target {
+			return true
+		}
+	}
+	return false
+}
+
+func containsTable(tables []TableInfo, target string) bool {
+	for _, table := range tables {
+		if table.Name == target {
 			return true
 		}
 	}

@@ -8,6 +8,7 @@ import (
 	"github.com/grafana/grafana-plugin-sdk-go/backend"
 	"github.com/grafana/grafana-plugin-sdk-go/backend/instancemgmt"
 	"github.com/grafana/grafana-plugin-sdk-go/data"
+	"github.com/grafana/grafana-plugin-sdk-go/experimental/concurrent"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/kaiwudb/kwdb-tsdb-datasource/pkg/models"
 )
@@ -27,32 +28,34 @@ type Datasource struct {
 
 // QueryData handles multiple queries and returns one response per query.
 func (d *Datasource) QueryData(ctx context.Context, req *backend.QueryDataRequest) (*backend.QueryDataResponse, error) {
-	response := backend.NewQueryDataResponse()
-	for _, q := range req.Queries {
-		response.Responses[q.RefID] = d.query(ctx, q)
-	}
-	return response, nil
+	return concurrent.QueryData(ctx, req, d.handleQuery, 10)
+}
+
+func (d *Datasource) handleQuery(ctx context.Context, query concurrent.Query) (res backend.DataResponse) {
+	return d.query(ctx, query.DataQuery)
 }
 
 func (d *Datasource) query(ctx context.Context, query backend.DataQuery) backend.DataResponse {
 	var qm models.QueryModel
 	err := json.Unmarshal(query.JSON, &qm)
 	if err != nil {
-		return backend.ErrDataResponse(backend.StatusBadRequest, fmt.Sprintf("json unmarshal: %v", err.Error()))
+		return backend.ErrDataResponseWithSource(backend.StatusBadRequest, backend.ErrorSourcePlugin, fmt.Sprintf("json unmarshal: %v", err.Error()))
 	}
 
 	sql := ExpandMacros(qm.RawSql, query.TimeRange)
 	if !IsReadOnly(sql) {
-		return backend.ErrDataResponse(backend.StatusBadRequest, "only read-only queries (SELECT/SHOW/EXPLAIN/WITH) are allowed")
+		return backend.ErrDataResponseWithSource(backend.StatusBadRequest, backend.ErrorSourcePlugin, "only read-only queries (SELECT/SHOW/EXPLAIN/WITH) are allowed")
 	}
 
 	rows, err := ExecuteQuery(ctx, d.pool, sql)
 	if err != nil {
-		return backend.DataResponse{Error: err}
+		backend.Logger.FromContext(ctx).Error("KWDB query failed", "refId", query.RefID, "error", err)
+		return backend.DataResponse{Error: err, ErrorSource: backend.ErrorSourceDownstream}
 	}
 	frame, err := RowsToFrame(rows, qm.Format, qm.TimeColumn, qm.Tags)
 	if err != nil {
-		return backend.DataResponse{Error: err}
+		backend.Logger.FromContext(ctx).Error("KWDB frame conversion failed", "refId", query.RefID, "error", err)
+		return backend.DataResponse{Error: err, ErrorSource: backend.ErrorSourcePlugin}
 	}
 	frame.RefID = query.RefID
 	return backend.DataResponse{Frames: data.Frames{frame}}

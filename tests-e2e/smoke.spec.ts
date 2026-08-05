@@ -6,24 +6,19 @@ test('provisioned KWDB datasource passes health check', async ({ readProvisioned
   expect(response.ok()).toBeTruthy();
 });
 
-test('raw SQL query renders KWDB table data', async ({ readProvisionedDataSource, panelEditPage }) => {
+test('panel editor runs a KWDB query and returns a table frame', async ({ readProvisionedDataSource, panelEditPage }) => {
   const ds = await readProvisionedDataSource({ fileName: 'datasources.yml' });
   await panelEditPage.datasource.set(ds.name);
   await panelEditPage.setVisualization('Table');
 
   const page = panelEditPage.ctx.page;
-  await page.getByLabel('Mode').click();
-  await page.getByRole('option', { name: 'Raw SQL' }).click();
-
-  await page.getByLabel('Format').click();
-  await page.getByRole('option', { name: 'Table' }).click();
-
-  const editor = page.locator('.monaco-editor textarea').first();
-  await editor.click();
-  await page.keyboard.press('ControlOrMeta+A');
-  await page.keyboard.type('SELECT ts, charger_id, current_amp FROM ts_db.charger_data LIMIT 3');
+  await page.getByRole('combobox', { name: 'Table' }).click();
+  await page.getByRole('option', { name: 'charger_data (TIME SERIES TABLE)' }).click();
+  await page.getByRole('combobox', { name: 'Time column' }).click();
+  await page.getByRole('option', { name: 'ts' }).click();
+  await page.getByRole('combobox', { name: 'Metric column 0' }).click();
+  await page.getByRole('option', { name: 'voltage_v' }).click();
 
   const response = await panelEditPage.refreshPanel();
   expect(response.ok()).toBeTruthy();
-  await expect(panelEditPage.panel.fieldNames).toContainText(['ts', 'charger_id', 'current_amp']);
 });

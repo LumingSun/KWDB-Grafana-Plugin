@@ -96,7 +96,7 @@ func TestParseDDLFailureReturnsNil(t *testing.T) {
 func TestTablesResource(t *testing.T) {
 	handler := newMetadataHandler(&fakeQuerier{
 		fn: func(ctx context.Context, sql string, args ...any) (pgx.Rows, error) {
-			return &mockRows{rows: [][]any{{"sensors"}, {"devices"}}}, nil
+			return &mockRows{rows: [][]any{{"sensors", "TIME SERIES TABLE"}, {"devices", "TABLE"}}}, nil
 		},
 	}, "defaultdb")
 
@@ -104,11 +104,12 @@ func TestTablesResource(t *testing.T) {
 	if resp.Status != 200 {
 		t.Fatalf("status = %d, body = %s", resp.Status, resp.Body)
 	}
-	var tables []string
+	var tables []TableInfo
 	if err := json.Unmarshal(resp.Body, &tables); err != nil {
 		t.Fatal(err)
 	}
-	if len(tables) != 2 || tables[0] != "sensors" || tables[1] != "devices" {
+	if len(tables) != 2 || tables[0].Name != "sensors" || tables[0].Type != "TIME SERIES TABLE" ||
+		tables[1].Name != "devices" || tables[1].Type != "TABLE" {
 		t.Errorf("unexpected tables: %#v", tables)
 	}
 }
