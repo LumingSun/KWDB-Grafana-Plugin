@@ -53,8 +53,8 @@ export function SqlPreview({ sql }: Props) {
       <Button icon="copy" size="sm" variant="secondary" aria-label="Copy SQL" onClick={copySql}>
         {copied ? 'Copied' : 'Copy'}
       </Button>
-      <div data-testid="sql-preview-resizable" style={{ width: '100%', height, overflow: 'hidden' }}>
-        <CodeEditor value={sql} language="sql" width="100%" height="100%" readOnly showLineNumbers={false} />
+      <div data-testid="sql-preview-resizable" style={{ width: '100%' }}>
+        <CodeEditor value={sql} language="sql" width="100%" height={height} readOnly showLineNumbers={false} />
       </div>
       <div
         data-testid="sql-preview-resize-handle"
