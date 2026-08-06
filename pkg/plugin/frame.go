@@ -2,6 +2,7 @@ package plugin
 
 import (
 	"fmt"
+	"math"
 	"sort"
 	"strings"
 	"time"
@@ -179,10 +180,19 @@ func convertValue(kind columnKind, v any) (any, error) {
 		case int16:
 			return int32(n), nil
 		case int64:
+			if n < math.MinInt32 || n > math.MaxInt32 {
+				return nil, fmt.Errorf("cannot convert %d to int32", n)
+			}
 			return int32(n), nil
 		case uint32:
+			if n > math.MaxInt32 {
+				return nil, fmt.Errorf("cannot convert %d to int32", n)
+			}
 			return int32(n), nil
 		case int:
+			if n < math.MinInt32 || n > math.MaxInt32 {
+				return nil, fmt.Errorf("cannot convert %d to int32", n)
+			}
 			return int32(n), nil
 		}
 		return nil, fmt.Errorf("cannot convert %T to int32", v)
