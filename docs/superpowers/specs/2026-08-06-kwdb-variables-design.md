@@ -9,7 +9,8 @@
 This spec adds variable ecosystem support to the KWDB TSDB Grafana data source
 plugin. Phase 1 enables Grafana Query variables and panel query interpolation:
 users can write read-only SQL in a Grafana Query variable, get string values as
-variable options, and use `$var` in any query mode of the plugin.
+variable options, and use `$var` in Raw SQL mode and in any other query whose
+final `rawSql` is sent to the backend.
 
 The design follows the modern Grafana `StandardVariableSupport` API instead of
 the legacy `metricFindQuery`-only path. Variable queries run through the
@@ -21,7 +22,10 @@ SQL execution, and Data Frame conversion are reused without backend changes.
 ### 2.1 In scope
 
 - Query variables that execute read-only SQL against KWDB.
-- Panel query interpolation for all existing query modes through `rawSql`.
+- Panel query interpolation through the final `rawSql`. In Phase 1 this is
+  directly usable in Raw SQL mode; visual builder controls are not
+  variable-aware, so variables used in visual modes must be preserved in the
+  generated `rawSql` by the user.
 - Multi-value variables formatted as SQL string literals by default.
 - Preservation of plugin-specific time macros for backend expansion.
 - Unit tests and an E2E test covering a variable-driven dashboard query.
@@ -65,7 +69,7 @@ query editor. The resulting `KwdbQuery` is submitted through
 
 - Inject `TemplateSrv` in the constructor for testability:
   `constructor(instanceSettings, private readonly templateSrv: TemplateSrv = getTemplateSrv())`.
-- Assign `this.variables = new KwdbVariableSupport(this)`.
+- Assign `this.variables = new KwdbVariableSupport()`.
 - Override `applyTemplateVariables(query, scopedVars)` to interpolate
   `query.rawSql`:
 
@@ -108,8 +112,11 @@ also enables cascading variables. The backend expands `$__timeFilter`,
 
 Grafana's `toMetricFindValues` operator turns the returned frame into variable
 options. A query such as `SELECT DISTINCT device_id FROM demo_ts.sensors`
-returns a string field that becomes the variable options. Queries returning
-`text` and `value` string columns are also mapped by the standard operator.
+returns a numeric field and does not populate options. Variable queries must
+return at least one string field; for the demo table,
+`SELECT DISTINCT location FROM demo_ts.sensors` returns the `location` string
+tag. Queries returning `text` and `value` string columns are also mapped by the
+standard operator.
 
 ## 4. Variable formatting
 
@@ -128,12 +135,19 @@ Plugin-specific macros such as `$__timeFilter(ts)`, `$__timeFrom`,
 `$__timeTo`, and `$__timeGroup` are not registered Grafana variables, so
 `TemplateSrv.replace` leaves them unchanged for the backend macro expander.
 
+For `LIKE` patterns and identifier-like values, users can write
+`${var:raw}` to disable quoting, or `${var:doublequote}` for double-quoted
+identifiers.
+
 ## 5. Error handling
 
 - Non-read-only variable SQL is rejected by the backend with the same
   `SELECT/SHOW/EXPLAIN/WITH` guard as panel queries.
 - SQL errors are returned through the normal query response and are displayed
   by Grafana's variable editor.
+- Variable queries must return at least one string field. Numeric- or
+  timestamp-only results surface Grafana's standard
+  `Couldn't find any field of type string` error in the variable editor.
 - Empty variable queries produce no options and do not error.
 - Empty `rawSql` in a panel query is left unchanged by
   `applyTemplateVariables`; existing `filterQuery` behavior is preserved.
@@ -152,16 +166,20 @@ Plugin-specific macros such as `$__timeFilter(ts)`, `$__timeFrom`,
 **E2E (`tests-e2e/variables.spec.ts`)**
 
 - Create a Grafana Query variable with
-  `SELECT DISTINCT device_id FROM demo_ts.sensors`.
+  `SELECT DISTINCT {KWDB_E2E_VARIABLE_COLUMN} FROM {KWDB_E2E_TABLE}`, defaulting
+  to `SELECT DISTINCT location FROM demo_ts.sensors`.
 - Assert that variable options are populated.
-- Run a panel query that references `$device` and assert data is returned.
+- Run a Raw SQL panel query using the same environment overrides, for example
+  `SELECT ts, {KWDB_E2E_METRIC} FROM {KWDB_E2E_TABLE} WHERE {KWDB_E2E_VARIABLE_COLUMN} = $device`,
+  and assert data is returned.
 
-The E2E test uses the same provisioned `KWDB TSDB` data source and table
-overrides as the existing tests.
+The E2E test uses the same provisioned `KWDB TSDB` data source and environment
+overrides as the existing tests. `KWDB_E2E_VARIABLE_COLUMN` must name a string
+column for the selected table.
 
 ## 7. Documentation
 
-Update `README.md`:
+Update both `README.md` and `src/README.md`:
 
 - Add a "Variables" section with Query variable examples.
 - Document the default `sqlstring` formatting and inline format overrides.
