@@ -1,11 +1,16 @@
-import { CoreApp, DataSourceInstanceSettings } from '@grafana/data';
-import { DataSourceWithBackend } from '@grafana/runtime';
+import { CoreApp, DataSourceInstanceSettings, ScopedVars } from '@grafana/data';
+import { DataSourceWithBackend, getTemplateSrv, TemplateSrv } from '@grafana/runtime';
 
 import { ColumnInfo, DEFAULT_QUERY, KwdbDataSourceOptions, KwdbQuery, TableInfo } from './types';
+import { KwdbVariableSupport } from './variableSupport';
 
 export class KwdbDataSource extends DataSourceWithBackend<KwdbQuery, KwdbDataSourceOptions> {
-  constructor(instanceSettings: DataSourceInstanceSettings<KwdbDataSourceOptions>) {
+  constructor(
+    instanceSettings: DataSourceInstanceSettings<KwdbDataSourceOptions>,
+    private readonly templateSrv: TemplateSrv = getTemplateSrv()
+  ) {
     super(instanceSettings);
+    this.variables = new KwdbVariableSupport();
   }
 
   getTables(): Promise<TableInfo[]> {
@@ -18,6 +23,16 @@ export class KwdbDataSource extends DataSourceWithBackend<KwdbQuery, KwdbDataSou
 
   getDefaultQuery(_: CoreApp): Partial<KwdbQuery> {
     return { ...DEFAULT_QUERY };
+  }
+
+  applyTemplateVariables(query: KwdbQuery, scopedVars: ScopedVars): KwdbQuery {
+    if (!query.rawSql) {
+      return query;
+    }
+    return {
+      ...query,
+      rawSql: this.templateSrv.replace(query.rawSql, scopedVars, 'sqlstring'),
+    };
   }
 
   annotations = {};

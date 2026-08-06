@@ -1,0 +1,79 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "datasource": {
+        "type": "lumingsun-kwdbtsdb-datasource",
+        "uid": "kwdb-tsdb"
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 0
+      },
+      "id": 1,
+      "options": {
+        "showHeader": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "lumingsun-kwdbtsdb-datasource",
+            "uid": "kwdb-tsdb"
+          },
+          "format": "table",
+          "mode": "raw",
+          "rawSql": "SELECT \"ts\", \"device_id\", \"temperature\", \"location\" FROM \"demo_ts\".\"sensors\" WHERE \"location\" = $location ORDER BY \"ts\" DESC LIMIT 20",
+          "refId": "A"
+        }
+      ],
+      "title": "Latest readings by location",
+      "type": "table"
+    }
+  ],
+  "schemaVersion": 39,
+  "tags": [
+    "kwdb"
+  ],
+  "templating": {
+    "list": [
+      {
+        "datasource": {
+          "type": "lumingsun-kwdbtsdb-datasource",
+          "uid": "kwdb-tsdb"
+        },
+        "definition": "SELECT DISTINCT location FROM demo_ts.sensors",
+        "includeAll": false,
+        "label": "Location",
+        "multi": false,
+        "name": "location",
+        "query": "SELECT DISTINCT location FROM demo_ts.sensors",
+        "refresh": 1,
+        "sort": 1,
+        "type": "query"
+      }
+    ]
+  },
+  "time": {
+    "from": "now-30m",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "",
+  "title": "KWDB TSDB Variables",
+  "uid": "kwdb-variables-demo",
+  "version": 1,
+  "weekStart": ""
+}

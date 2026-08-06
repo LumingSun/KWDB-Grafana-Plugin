@@ -59,6 +59,8 @@ environment:
 KWDB_E2E_TABLE=ts_db.charger_data \
 KWDB_E2E_COLUMNS='ts, charger_id, current_amp, voltage_v' \
 KWDB_E2E_METRIC=voltage_v \
+KWDB_E2E_VARIABLE_COLUMN=station_code \
+KWDB_E2E_VARIABLE_VALUES='SZ_STATION_03, station_A, station_B' \
 yarn e2e
 ```
 

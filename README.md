@@ -9,6 +9,7 @@ This plugin connects [Grafana](https://grafana.com) to KaiwuDB and its open-sour
 ## Features
 
 - Visual SQL builder for downsampling, gapfill, latest values, and window/event queries, plus a raw SQL editor.
+- Grafana Query variables and template variable interpolation for dynamic dashboards.
 - Time-series and table output formats with automatic KWDB type conversion.
 - Table and column metadata browsing, including `TIME SERIES TABLE` vs `TABLE` detection.
 - Backend health check, Grafana Alerting, and annotation queries.
@@ -54,6 +55,30 @@ Available macros:
 - `$__timeFilter(column)` expands to a timestamp range filter.
 - `$__timeFrom` and `$__timeTo` expand to the dashboard time range.
 - `$__timeGroup(column, 'interval')` expands to `time_bucket`.
+
+## Variables
+
+The data source supports Grafana Query variables and template variable
+interpolation. Create a Query variable with read-only SQL that returns a string
+column, for example:
+
+```sql
+SELECT DISTINCT location FROM demo_ts.sensors
+```
+
+Use the variable in a Raw SQL query:
+
+```sql
+SELECT ts, temperature, location FROM demo_ts.sensors
+WHERE location = $location
+```
+
+Variable values are formatted as SQL string literals by default. Use
+`${var:raw}` for raw values and `${var:doublequote}` for double-quoted
+identifiers. Variable queries must return at least one string field; numeric-
+or timestamp-only results are not displayed as options. In the current
+version, interpolation applies to the final `rawSql`, so use Raw SQL mode when
+writing variables.
 
 ## Development
 
