@@ -80,6 +80,12 @@ describe('QueryEditor', () => {
     expect(screen.getByTestId('sql-preview-editor')).toBeInTheDocument();
   });
 
+  it('renders the resizable SQL preview handle', () => {
+    renderEditor({ ...BASE_QUERY });
+
+    expect(screen.getByTestId('sql-preview-resize-handle')).toBeInTheDocument();
+  });
+
   it('accepts a custom downsampling interval', () => {
     const { onChange } = renderEditor({ ...BASE_QUERY });
     const intervalInput = screen.getByLabelText('Interval');
