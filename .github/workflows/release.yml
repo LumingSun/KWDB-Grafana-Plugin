@@ -21,6 +21,7 @@ jobs:
 
       - uses: grafana/plugin-actions/build-plugin@main
         with:
+          node-version: 22
           policy_token: ${{ secrets.GRAFANA_ACCESS_POLICY_TOKEN }}
           attestation: true
           use_changelog_generator: true
