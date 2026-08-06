@@ -20,8 +20,8 @@
     },
     "keywords": ["datasource", "time series", "TSDB", "SQL", "KWDB", "KaiwuDB"],
     "logos": {
-      "small": "img/logo.png",
-      "large": "img/logo.png"
+      "small": "img/logo.svg",
+      "large": "img/logo.svg"
     },
     "links": [
       {
