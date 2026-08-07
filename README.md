@@ -1,20 +1,32 @@
-# KaiwuDB / KWDB Grafana data source plugin
+# KaiwuDB / KWDB Grafana Data Source Plugin
 
-This plugin connects [Grafana](https://grafana.com) to KaiwuDB and its open-source edition, KWDB. It executes read-only SQL against the KWDB time-series engine and renders results as Grafana time series or table data.
+This plugin connects [Grafana](https://grafana.com) to KaiwuDB and its
+open-source edition, KWDB. It executes read-only SQL against the KWDB
+time-series engine through the PostgreSQL wire protocol and renders results as
+Grafana time series or table data.
 
-![KWDB TSDB query editor](https://github.com/LumingSun/kwdb-tsdb-datasource/raw/master/src/img/screenshot-query-editor.png)
-
-> 本插件适用于 KaiwuDB 及其开源版本 KWDB，可以在 Grafana 中查询、展示和分析 KWDB 时序数据。
+> 本插件适用于 KaiwuDB 及其开源版本 KWDB，可以在 Grafana 中查询、展示和分析
+> KWDB 时序数据。
 
 ## Features
 
-- Visual SQL builder for downsampling, gapfill, latest values, and window/event queries, plus a raw SQL editor.
+- Visual SQL builder for downsampling, gapfill, latest values, and window/event
+  queries, plus a raw SQL editor.
 - Time-series and table output formats with automatic KWDB type conversion.
-- Table and column metadata browsing, including `TIME SERIES TABLE` vs `TABLE` detection.
-- Backend health check, Grafana Alerting, and annotation queries.
-- Read-only query enforcement: only `SELECT`, `SHOW`, `EXPLAIN`, and `WITH` statements are allowed.
-- TLS root certificate support for `verify-ca` and `verify-full`.
-- Result rows are capped at 100,000 per frame with a warning notice on truncation.
+- Table and column metadata browsing, including `TIME SERIES TABLE` vs `TABLE`
+  detection.
+- Backend health check, Grafana Alerting, and annotations.
+- Read-only query enforcement.
+- TLS root certificate support.
+- 100,000-row result cap with a warning notice.
+
+## Quick Start
+
+1. Install the plugin and add a `KWDB TSDB` data source.
+2. Configure the KWDB host, port, database, user, and password.
+3. Click **Save & test**.
+4. Create a dashboard and add a panel using the KWDB data source.
+5. Choose a query mode and refresh the panel.
 
 ## Requirements
 
@@ -22,12 +34,69 @@ This plugin connects [Grafana](https://grafana.com) to KaiwuDB and its open-sour
 - KWDB or KaiwuDB with a PostgreSQL-compatible endpoint (default port `26257`)
 - A database account with read access; prefer a dedicated read-only account
 
+| Component | Requirement |
+| --- | --- |
+| Grafana | 12.3 or newer |
+| KWDB / KaiwuDB | PostgreSQL-compatible endpoint, default port `26257` |
+| Database account | Read access; a dedicated read-only account is recommended |
+
 ## Installation
 
-- **From the Grafana plugin catalog:** install `lumingsun-kwdbtsdb-datasource` once it is published, then add a `KWDB TSDB` data source.
-- **From a ZIP:** build and sign the plugin, rename `dist` to the plugin ID, create a ZIP, and extract it into Grafana's plugin directory. See the [packaging guide](https://grafana.com/developers/plugin-tools/publish-a-plugin/package-a-plugin).
+### Grafana plugin catalog
+
+Install `lumingsun-kwdbtsdb-datasource` from the Grafana plugin catalog once it
+is published, then add a `KWDB TSDB` data source.
+
+### grafana-cli
+
+When the plugin is published, install it from the command line:
+
+```bash
+grafana-cli plugins install lumingsun-kwdbtsdb-datasource
+```
+
+Restart Grafana after installation.
+
+### Manual ZIP installation
+
+1. Build and sign the plugin.
+2. Rename `dist` to `lumingsun-kwdbtsdb-datasource`.
+3. Create a ZIP archive.
+4. Extract it into Grafana's plugin directory.
+5. Restart Grafana.
+
+See the
+[Grafana plugin packaging guide](https://grafana.com/developers/plugin-tools/publish-a-plugin/package-a-plugin).
+
+### Local development environment
+
+The repository includes a Docker Compose stack that starts KWDB, seeds the
+`demo_ts.sensors` table, provisions the `KWDB TSDB` data source, and loads a
+demo dashboard:
+
+```bash
+docker compose up -d
+```
+
+Grafana is available at `http://localhost:3001` by default. Override the port
+with `GRAFANA_PORT`.
+
+To point the provisioned data source at an existing KWDB instance:
+
+```bash
+KWDB_HOST=10.110.105.80 KWDB_PORT=26258 KWDB_DATABASE=ts_db \
+  docker compose up -d --no-deps grafana
+```
 
 ## Configuration
+
+1. Open Grafana and navigate to **Connections** > **Data sources**.
+2. Click **Add data source**.
+3. Search for **KWDB TSDB**.
+4. Fill in the connection settings.
+5. Click **Save & test**.
+
+![KWDB Datasource](https://github.com/LumingSun/kwdb-tsdb-datasource/raw/master/src/img/kwdb-datasource.png)
 
 | Field | Description |
 | --- | --- |
@@ -39,37 +108,168 @@ This plugin connects [Grafana](https://grafana.com) to KaiwuDB and its open-sour
 | SSL Root Cert | Path to the CA certificate for `verify-ca` / `verify-full`. |
 | Password | Database password, stored in Grafana secure JSON data. |
 
-## Usage
+### TLS/SSL
 
-The query editor supports five modes:
+For `verify-ca` and `verify-full`, provide the CA certificate path in
+**SSL Root Cert**. The certificate path is passed to the PostgreSQL connection
+as `sslrootcert`.
 
-- **Downsampling** aggregates metrics with `time_bucket`.
-- **Gapfill** fills time gaps with `time_bucket_gapfill` and interpolation.
-- **Latest values** returns the latest row per tag set.
-- **Window/Event** supports `TIME_WINDOW`, `SESSION_WINDOW`, `EVENT_WINDOW`, `COUNT_WINDOW`, and `STATE_WINDOW`.
-- **Raw SQL** accepts read-only `SELECT`, `SHOW`, `EXPLAIN`, or `WITH` statements.
+### Save and test
 
-Available macros:
+Click **Save & test** to verify connectivity. The backend executes `SELECT 1`
+and reports whether the data source is working.
 
-- `$__timeFilter(column)` expands to a timestamp range filter.
-- `$__timeFrom` and `$__timeTo` expand to the dashboard time range.
-- `$__timeGroup(column, 'interval')` expands to `time_bucket`.
+![test-datasource](https://github.com/LumingSun/kwdb-tsdb-datasource/raw/master/src/img/save-test.png)
 
-## Development
+## Build a dashboard
 
-See [DEVELOPMENT.md](https://github.com/LumingSun/kwdb-tsdb-datasource/blob/master/DEVELOPMENT.md)
-for local development, testing, and packaging instructions.
+1. Create a new dashboard.
+2. Add a panel.
+3. Select the **KWDB TSDB** data source.
+4. Choose a query mode in the query editor.
+5. Refresh the panel and verify the data.
 
-## Publishing
+## Query editor
 
-- Plugin ID: `lumingsun-kwdbtsdb-datasource`; it must match the Grafana Cloud organization slug `lumingsun`.
-- First submissions do not require a signature. After review, versions are signed and released through the `Release` GitHub Actions workflow.
-- Add `GRAFANA_ACCESS_POLICY_TOKEN` (Access Policy token with `plugins:write`) to the repository secrets.
-- Run the [plugin validator](https://github.com/grafana/plugin-validator) before submitting.
+The query editor provides five modes:
 
-Full instructions are in the [Grafana plugin publishing guide](https://grafana.com/developers/plugin-tools/publish-a-plugin).
+- **Downsampling**
+- **Gapfill**
+- **Latest Values**
+- **Window/Event**
+- **Raw SQL**
+
+Each visual mode generates SQL automatically and shows a read-only SQL preview.
+The SQL preview fills the available width and can be resized vertically with
+the drag handle below the editor.
+
+### Downsampling
+
+Downsampling aggregates metrics into fixed time buckets with `time_bucket`.
+Select a table, time column, interval, tag columns for `GROUP BY`, and one or
+more metrics.
+
+Aggregations: `avg`, `sum`, `count`, `min`, `max`, `stddev`, `none`.
+
+![downsampling example](https://github.com/LumingSun/kwdb-tsdb-datasource/raw/master/src/img/downsampling-example.png)
+
+### Gapfill
+
+Gapfill fills missing time buckets with `time_bucket_gapfill` and
+`interpolate`. Supported interpolation modes:
+
+- `linear`
+- `PREV`
+- `NEXT`
+- `constant`
+- `NULL`
+
+
+### Latest values
+
+Latest values returns the latest row per tag set. Supported functions:
+
+- `last`
+- `last_row`
+- `first`
+- `first_row`
+
+
+### Window/Event
+
+Window/Event queries use KWDB window functions:
+
+- `TIME_WINDOW`
+- `SESSION_WINDOW`
+- `EVENT_WINDOW`
+- `COUNT_WINDOW`
+- `STATE_WINDOW`
+
+
+### Raw SQL
+
+Raw SQL accepts read-only statements that start with `SELECT`, `SHOW`,
+`EXPLAIN`, or `WITH`. Multi-statement queries and write statements are
+rejected.
+
+Example:
+
+```sql
+SELECT ts, voltage_v, station_code
+FROM charger_data
+WHERE $__timeFilter(ts)
+ORDER BY ts
+LIMIT 100
+```
+
+## Time macros
+
+| Macro | Expansion |
+| --- | --- |
+| `$__timeFilter(column)` | `column >= '...'::TIMESTAMP AND column <= '...'::TIMESTAMP` |
+| `$__timeFrom` | Dashboard time range start as a timestamp literal |
+| `$__timeTo` | Dashboard time range end as a timestamp literal |
+| `$__timeGroup(column, 'interval')` | `time_bucket(column, 'interval')` |
+
+Subsecond precision is preserved in the expanded timestamp literals.
+
+## Alerting and annotations
+
+The plugin supports Grafana Alerting and annotations. Alerting and annotation
+queries use the same backend query pipeline and read-only SQL enforcement.
+
+## Output formats
+
+Each query returns one of two formats:
+
+- **Time series**: the backend finds the time column, sorts by time, converts
+  tag columns into labels, and produces a wide time-series frame.
+- **Table**: the result is returned as a long table frame.
+
+Result rows are capped at 100,000 rows per frame. When the cap is reached, the
+frame includes a warning notice.
+
+## Read-only safety
+
+The backend only allows SQL starting with `SELECT`, `SHOW`, `EXPLAIN`, or
+`WITH`. It rejects:
+
+- Multi-statement SQL.
+- `SELECT INTO`.
+- DML inside `WITH`.
+- `CREATE`, `DROP`, `ALTER`, `INSERT`, `UPDATE`, `DELETE`, `TRUNCATE`, and
+  other write keywords.
+
+Keywords inside string literals, quoted identifiers, and comments are ignored.
+
+## Troubleshooting
+
+### Health check fails
+
+- Verify the KWDB host, port, database, user, and password.
+- Confirm the port is reachable from the Grafana backend.
+- Check KWDB account permissions.
+
+### Table list is empty
+
+- Confirm the configured database exists.
+- Confirm the account can run `SHOW TABLES`.
+
+### Results are truncated
+
+- The backend caps results at 100,000 rows per frame.
+- Add `LIMIT` or narrow the time range.
+
+## Development and publishing
+
+- See [DEVELOPMENT.md](DEVELOPMENT.md) for local development, testing, and
+  packaging.
+- Plugin ID: `lumingsun-kwdbtsdb-datasource`
+- First submissions do not require a signature. After review, versions are
+  signed and released through the `Release` GitHub Actions workflow.
+- Full publishing instructions:
+  [Grafana plugin publishing guide](https://grafana.com/developers/plugin-tools/publish-a-plugin)
 
 ## License
 
-Apache License 2.0. See
-[LICENSE](https://github.com/LumingSun/kwdb-tsdb-datasource/blob/master/LICENSE).
+Apache License 2.0. See [LICENSE](LICENSE).

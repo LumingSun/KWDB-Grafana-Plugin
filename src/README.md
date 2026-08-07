@@ -2,8 +2,6 @@
 
 This plugin connects [Grafana](https://grafana.com) to KaiwuDB and its open-source edition, KWDB. It executes read-only SQL against the KWDB time-series engine and renders results as Grafana time series or table data.
 
-![KWDB TSDB query editor](https://github.com/LumingSun/kwdb-tsdb-datasource/raw/master/src/img/screenshot-query-editor.png)
-
 > 本插件适用于 KaiwuDB 及其开源版本 KWDB，可以在 Grafana 中查询、展示和分析 KWDB 时序数据。
 
 ## Features
