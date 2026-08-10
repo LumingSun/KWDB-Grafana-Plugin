@@ -7,7 +7,7 @@ Grafana time series or table data.
 
 > 本插件适用于 KaiwuDB 及其开源版本 KWDB，可以在 Grafana 中查询、展示和分析
 > KWDB 时序数据。
-
+![example](https://github.com/LumingSun/kwdb-tsdb-datasource/raw/master/src/img/example.png)
 ## Features
 
 - Visual SQL builder for downsampling, gapfill, latest values, and window/event
