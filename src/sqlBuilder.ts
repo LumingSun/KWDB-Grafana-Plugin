@@ -219,11 +219,12 @@ export function buildWindowSql(query: KwdbQuery): string {
 
   const tags = (query.tags ?? []).map((tag) => tag.trim()).filter(Boolean);
   const items = [
-    `${windowExpr} AS "time"`,
+    `first(${quoteIdent(timeColumn)}) AS "time"`,
     ...tags.map(quoteIdent),
     ...metrics.map(metricExpr),
   ];
-  const { groupBy, orderBy } = groupAndOrderBy(tags);
+  const groupBy = [...tags.map(quoteIdent), windowExpr];
+  const orderBy = ['"time"', ...tags.map(quoteIdent)];
   return [
     ...selectLines(items),
     `FROM ${quoteQualified(table)}`,

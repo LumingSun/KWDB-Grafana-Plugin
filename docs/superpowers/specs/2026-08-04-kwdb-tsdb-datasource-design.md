@@ -170,12 +170,12 @@ GROUP BY "device_id"
 
 **Window/Event mode (TIME_WINDOW example):**
 ```sql
-SELECT TIME_WINDOW("ts", '1h', '15m') AS "time",
+SELECT first("ts") AS "time",
        "device_id",
        avg("temperature") AS "avg_temperature"
 FROM "ts_db"."sensor_data"
 WHERE "ts" >= $__timeFrom AND "ts" <= $__timeTo
-GROUP BY "time", "device_id"
+GROUP BY "device_id", TIME_WINDOW("ts", '1h', '15m')
 ORDER BY "time", "device_id"
 ```
 

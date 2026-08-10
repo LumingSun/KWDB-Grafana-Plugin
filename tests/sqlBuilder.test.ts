@@ -170,12 +170,12 @@ describe('sqlBuilder', () => {
 
     expect(buildWindowSql(query)).toBe(
       [
-        'SELECT TIME_WINDOW("ts", \'1h\', \'15m\') AS "time",',
+        'SELECT first("ts") AS "time",',
         '       "device_id",',
         '       avg("temperature") AS "avg_temperature"',
         'FROM "ts_db"."sensor_data"',
         'WHERE "ts" >= $__timeFrom AND "ts" <= $__timeTo',
-        'GROUP BY "time", "device_id"',
+        'GROUP BY "device_id", TIME_WINDOW("ts", \'1h\', \'15m\')',
         'ORDER BY "time", "device_id"',
       ].join('\n')
     );
@@ -191,7 +191,8 @@ describe('sqlBuilder', () => {
       windowInterval: '5m',
       metrics: [{ column: 'speed', aggregation: 'avg' }],
     };
-    expect(buildWindowSql(session)).toContain('SESSION_WINDOW("ts", \'5m\') AS "time"');
+    expect(buildWindowSql(session)).toContain('first("ts") AS "time"');
+    expect(buildWindowSql(session)).toContain('GROUP BY SESSION_WINDOW("ts", \'5m\')');
 
     const event: KwdbQuery = {
       ...session,
@@ -199,7 +200,7 @@ describe('sqlBuilder', () => {
       eventStartCond: 'temp > 100',
       eventEndCond: 'temp <= 100',
     };
-    expect(buildWindowSql(event)).toContain('EVENT_WINDOW(temp > 100, temp <= 100) AS "time"');
+    expect(buildWindowSql(event)).toContain('GROUP BY EVENT_WINDOW(temp > 100, temp <= 100)');
 
     const count: KwdbQuery = {
       ...session,
@@ -207,7 +208,7 @@ describe('sqlBuilder', () => {
       windowInterval: '100',
       windowSlide: '10',
     };
-    expect(buildWindowSql(count)).toContain('COUNT_WINDOW(100, 10) AS "time"');
+    expect(buildWindowSql(count)).toContain('GROUP BY COUNT_WINDOW(100, 10)');
 
     const state: KwdbQuery = {
       ...session,
@@ -215,7 +216,7 @@ describe('sqlBuilder', () => {
       eventStartCond: 'CASE WHEN voltage >= 225 THEN 1 ELSE 0 END',
     };
     expect(buildWindowSql(state)).toContain(
-      'STATE_WINDOW(CASE WHEN voltage >= 225 THEN 1 ELSE 0 END) AS "time"'
+      'GROUP BY STATE_WINDOW(CASE WHEN voltage >= 225 THEN 1 ELSE 0 END)'
     );
   });
 
