@@ -4,15 +4,7 @@
 
 [Full Changelog](https://github.com/LumingSun/kwdb-tsdb-datasource/compare/v1.0.0...v1.1.0)
 
-**Fixed**
-
-- Generate KWDB window queries with the window function only in `GROUP BY`; use `first(ts)` in `SELECT` as the window start.
-- Make the SQL preview full width and resizable, with an explicit editor height.
-
-**Changed**
-
-- Use yarn for the compatibility check workflow.
-- Update the README with setup, usage, screenshots, and example images.
+- Fix sql preview [\#12](https://github.com/LumingSun/kwdb-tsdb-datasource/pull/12) ([LumingSun](https://github.com/LumingSun))
 
 ## [v1.0.0](https://github.com/LumingSun/kwdb-tsdb-datasource/tree/v1.0.0) (2026-08-06)
 
