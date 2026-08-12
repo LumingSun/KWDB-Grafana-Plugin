@@ -2,7 +2,7 @@ module github.com/kaiwudb/kwdb-tsdb-datasource
 
 go 1.26.5
 
-require github.com/grafana/grafana-plugin-sdk-go v0.295.0
+require github.com/grafana/grafana-plugin-sdk-go v0.296.1
 
 require github.com/jackc/pgx/v5 v5.10.0
 
