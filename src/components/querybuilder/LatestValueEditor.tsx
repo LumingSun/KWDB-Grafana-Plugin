@@ -109,12 +109,12 @@ export function LatestValueEditor({ datasource, query, onChange }: Props) {
         (splitByTag ? (
           <Alert severity="info" title="One series per tag value" aria-label="Latest values splitting hint">
             Results are split into one series per tag combination, so Stat and Gauge panels show every device
-            separately. Disable "Split per tag" to return a single merged table frame.
+            separately. Disable &quot;Split per tag&quot; to return a single merged table frame.
           </Alert>
         ) : (
           <Alert severity="info" title="Merged table frame" aria-label="Latest values merging hint">
-            All tag combinations are returned as one merged frame. Enable "Split per tag" so Stat and Gauge panels
-            show every device separately.
+            All tag combinations are returned as one merged frame. Enable &quot;Split per tag&quot; so Stat and Gauge
+            panels show every device separately.
           </Alert>
         ))}
       <SqlPreview sql={query.rawSql ?? ''} />
