@@ -1,14 +1,18 @@
 # Changelog
 
-## [v1.1.0](https://github.com/LumingSun/kwdb-tsdb-datasource/tree/v1.1.0) (2026-08-10)
+## [v1.2.0](https://github.com/LumingSun/KWDB-Grafana-Plugin/tree/v1.2.0) (2026-08-25)
 
-[Full Changelog](https://github.com/LumingSun/kwdb-tsdb-datasource/compare/v1.0.0...v1.1.0)
+[Full Changelog](https://github.com/LumingSun/KWDB-Grafana-Plugin/compare/v1.1.0...v1.2.0)
 
-- Fix sql preview [\#12](https://github.com/LumingSun/kwdb-tsdb-datasource/pull/12) ([LumingSun](https://github.com/LumingSun))
+## [v1.1.0](https://github.com/LumingSun/KWDB-Grafana-Plugin/tree/v1.1.0) (2026-08-10)
 
-## [v1.0.0](https://github.com/LumingSun/kwdb-tsdb-datasource/tree/v1.0.0) (2026-08-06)
+[Full Changelog](https://github.com/LumingSun/KWDB-Grafana-Plugin/compare/v1.0.0...v1.1.0)
 
-[Full Changelog](https://github.com/LumingSun/kwdb-tsdb-datasource/compare/6d2886713db4b6cdd8897f2246376a8be56347d5...v1.0.0)
+- Fix sql preview [\#12](https://github.com/LumingSun/KWDB-Grafana-Plugin/pull/12) ([LumingSun](https://github.com/LumingSun))
+
+## [v1.0.0](https://github.com/LumingSun/KWDB-Grafana-Plugin/tree/v1.0.0) (2026-08-06)
+
+[Full Changelog](https://github.com/LumingSun/KWDB-Grafana-Plugin/compare/6d2886713db4b6cdd8897f2246376a8be56347d5...v1.0.0)
 
 
 
