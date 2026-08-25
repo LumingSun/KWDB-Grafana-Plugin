@@ -99,10 +99,14 @@ func TestRowsToFrameTruncatesAtMaxRows(t *testing.T) {
 		},
 	}
 
-	frame, err := rowsToFrame(rows, "table", "", nil, 2)
+	frames, err := RowsToFrames(rows, FrameOptions{Format: "table", MaxRows: 2})
 	if err != nil {
 		t.Fatal(err)
 	}
+	if len(frames) != 1 {
+		t.Fatalf("frame count = %d, want 1", len(frames))
+	}
+	frame := frames[0]
 	rowLen, err := frame.RowLen()
 	if err != nil {
 		t.Fatal(err)

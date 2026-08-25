@@ -52,13 +52,24 @@ func (d *Datasource) query(ctx context.Context, query backend.DataQuery) backend
 		backend.Logger.FromContext(ctx).Error("KWDB query failed", "refId", query.RefID, "error", err)
 		return backend.DataResponse{Error: err, ErrorSource: backend.ErrorSourceDownstream}
 	}
-	frame, err := RowsToFrame(rows, qm.Format, qm.TimeColumn, qm.Tags)
+	frames, err := RowsToFrames(rows, FrameOptions{
+		Format:     qm.Format,
+		Mode:       qm.Mode,
+		TimeColumn: qm.TimeColumn,
+		Tags:       qm.Tags,
+		SplitByTag: qm.SplitByTag,
+		MaxRows:    DefaultMaxRows,
+	})
 	if err != nil {
 		backend.Logger.FromContext(ctx).Error("KWDB frame conversion failed", "refId", query.RefID, "error", err)
 		return backend.DataResponse{Error: err, ErrorSource: backend.ErrorSourcePlugin}
 	}
-	frame.RefID = query.RefID
-	return backend.DataResponse{Frames: data.Frames{frame}}
+	response := make(data.Frames, 0, len(frames))
+	for _, frame := range frames {
+		frame.RefID = query.RefID
+		response = append(response, frame)
+	}
+	return backend.DataResponse{Frames: response}
 }
 
 // CheckHealth verifies connectivity by executing SELECT 1.

@@ -40,6 +40,8 @@ services:
       KWDB_USER: ${KWDB_USER:-root}
       KWDB_PASSWORD: ${KWDB_PASSWORD:-}
       GF_FEATURE_TOGGLES_dashboardNewLayouts: 'false'
+      # 允许被 iframe 嵌入（仪表板外部图表功能需要）
+      GF_SECURITY_ALLOW_EMBEDDING: 'true'
 
 volumes:
   kwdb-data:

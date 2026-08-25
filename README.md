@@ -174,6 +174,19 @@ Latest values returns the latest row per tag set. Supported functions:
 - `first`
 - `first_row`
 
+Results are split into one series per tag combination, so Stat and Gauge
+panels display one value per device without extra panel configuration:
+
+- With the **Time series** format the backend converts tag columns into
+  labels on a single wide frame.
+- With the **Table** format the backend returns one frame per tag value,
+  keeping every original column so tables still render normally.
+
+Disable the **Split per tag** toggle in the Latest Values editor to return
+a single merged table frame instead. As a panel-side alternative, Gauge/Stat
+panels can also set **Value options → Show: All values** to expand grouped
+rows into one value per device.
+
 
 ### Window/Event
 
@@ -224,7 +237,10 @@ Each query returns one of two formats:
 
 - **Time series**: the backend finds the time column, sorts by time, converts
   tag columns into labels, and produces a wide time-series frame.
-- **Table**: the result is returned as a long table frame.
+- **Table**: the result is returned as a long table frame. Latest-values
+  queries with tag columns return one frame per tag combination by default,
+  so every device becomes its own series for Gauge/Stat panels. Disable
+  the **Split per tag** toggle to return a single merged table frame.
 
 Result rows are capped at 100,000 rows per frame. When the cap is reached, the
 frame includes a warning notice.

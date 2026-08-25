@@ -34,14 +34,73 @@ type columnPlan struct {
 // DefaultMaxRows caps the number of rows buffered into a single frame.
 const DefaultMaxRows = 100000
 
-// RowsToFrame converts pgx result rows into a Grafana Data Frame.
-func RowsToFrame(rows pgx.Rows, format string, timeColumn string, tags []string) (*data.Frame, error) {
-	return rowsToFrame(rows, format, timeColumn, tags, DefaultMaxRows)
+// FrameOptions controls how pgx result rows are converted into Grafana frames.
+type FrameOptions struct {
+	// Format is either "time_series" or "table".
+	Format string
+	// Mode is the query builder mode ("downsampling", "gapfill", "latest",
+	// "window", "raw"). Tag-based frame splitting only applies to "latest".
+	Mode string
+	// TimeColumn optionally names the time column used for detection.
+	TimeColumn string
+	// Tags lists tag columns used to split latest-value results into one
+	// frame per distinct tag combination.
+	Tags []string
+	// SplitByTag disables tag-based frame splitting when set to false;
+	// nil or true splits latest-values results per tag combination.
+	SplitByTag *bool
+	// MaxRows caps the number of buffered rows; zero or negative disables the cap.
+	MaxRows int
 }
 
-func rowsToFrame(rows pgx.Rows, format string, timeColumn string, tags []string, maxRows int) (*data.Frame, error) {
+// RowsToFrame converts pgx result rows into a single Grafana Data Frame.
+func RowsToFrame(rows pgx.Rows, format string, timeColumn string, tags []string) (*data.Frame, error) {
+	frames, err := RowsToFrames(rows, FrameOptions{Format: format, TimeColumn: timeColumn, Tags: tags, MaxRows: DefaultMaxRows})
+	if err != nil {
+		return nil, err
+	}
+	return frames[0], nil
+}
+
+// RowsToFrames converts pgx result rows into one or more Grafana Data Frames.
+// Latest-values queries grouped by tags produce one frame per tag combination
+// so visualization panels show a separate series for every group.
+func RowsToFrames(rows pgx.Rows, opts FrameOptions) ([]*data.Frame, error) {
 	defer rows.Close()
 
+	maxRows := opts.MaxRows
+	plans, truncated, err := scanPlans(rows, maxRows)
+	if err != nil {
+		return nil, err
+	}
+
+	if opts.Format == "time_series" {
+		frame, err := timeSeriesFrame(plans, opts.TimeColumn, opts.Tags)
+		if err != nil {
+			return nil, err
+		}
+		if truncated {
+			applyMaxRowsNotice(frame, maxRows)
+		}
+		return []*data.Frame{frame}, nil
+	}
+
+	if frames := splitLatestFrames(plans, opts); frames != nil {
+		if truncated {
+			applyMaxRowsNotice(frames[0], maxRows)
+		}
+		return frames, nil
+	}
+
+	frame := newFrameFromPlans(plans)
+	if truncated {
+		applyMaxRowsNotice(frame, maxRows)
+	}
+	return []*data.Frame{frame}, nil
+}
+
+// scanPlans buffers all result rows into typed column plans.
+func scanPlans(rows pgx.Rows, maxRows int) ([]columnPlan, bool, error) {
 	descriptions := rows.FieldDescriptions()
 	plans := make([]columnPlan, len(descriptions))
 	for i, fd := range descriptions {
@@ -61,66 +120,57 @@ func rowsToFrame(rows pgx.Rows, format string, timeColumn string, tags []string,
 		}
 		values, err := rows.Values()
 		if err != nil {
-			return nil, err
+			return nil, false, err
 		}
 		if len(values) != len(plans) {
-			return nil, fmt.Errorf("row has %d values but %d fields were described", len(values), len(plans))
+			return nil, false, fmt.Errorf("row has %d values but %d fields were described", len(values), len(plans))
 		}
 		for i := range plans {
 			value, err := convertValue(plans[i].kind, values[i])
 			if err != nil {
-				return nil, fmt.Errorf("column %q: %w", plans[i].name, err)
+				return nil, false, fmt.Errorf("column %q: %w", plans[i].name, err)
 			}
 			plans[i].values = append(plans[i].values, value)
 		}
 		rowCount++
 	}
 	if err := rows.Err(); err != nil {
+		return nil, false, err
+	}
+	return plans, truncated, nil
+}
+
+// timeSeriesFrame converts buffered plans into a wide time-series frame.
+func timeSeriesFrame(plans []columnPlan, timeColumn string, tags []string) (*data.Frame, error) {
+	if err := prepareTimeSeries(plans, timeColumn, tags); err != nil {
 		return nil, err
 	}
 
-	if format == "time_series" {
-		if err := prepareTimeSeries(plans, timeColumn, tags); err != nil {
-			return nil, err
-		}
+	frame := newFrameFromPlans(plans)
+	rowLen, err := frame.RowLen()
+	if err != nil {
+		return nil, err
 	}
+	if rowLen == 0 {
+		return frame, nil
+	}
+	switch frame.TimeSeriesSchema().Type {
+	case data.TimeSeriesTypeLong:
+		return data.LongToWide(frame, nil)
+	case data.TimeSeriesTypeWide:
+		return frame, nil
+	default:
+		return nil, fmt.Errorf("could not convert frame to time series")
+	}
+}
 
+// newFrameFromPlans builds a plain frame from buffered column plans.
+func newFrameFromPlans(plans []columnPlan) *data.Frame {
 	frame := data.NewFrame("response")
 	for _, plan := range plans {
 		frame.Fields = append(frame.Fields, buildField(plan))
 	}
-
-	if format == "time_series" {
-		rowLen, err := frame.RowLen()
-		if err != nil {
-			return nil, err
-		}
-		if rowLen == 0 {
-			return frame, nil
-		}
-		switch frame.TimeSeriesSchema().Type {
-		case data.TimeSeriesTypeLong:
-			wide, err := data.LongToWide(frame, nil)
-			if err != nil {
-				return nil, err
-			}
-			if truncated {
-				applyMaxRowsNotice(wide, maxRows)
-			}
-			return wide, nil
-		case data.TimeSeriesTypeWide:
-			if truncated {
-				applyMaxRowsNotice(frame, maxRows)
-			}
-			return frame, nil
-		default:
-			return nil, fmt.Errorf("could not convert frame to time series")
-		}
-	}
-	if truncated {
-		applyMaxRowsNotice(frame, maxRows)
-	}
-	return frame, nil
+	return frame
 }
 
 func applyMaxRowsNotice(frame *data.Frame, maxRows int) {
@@ -131,6 +181,111 @@ func applyMaxRowsNotice(frame *data.Frame, maxRows int) {
 		Severity: data.NoticeSeverityWarning,
 		Text:     fmt.Sprintf("Query result was truncated at %d rows; add LIMIT or narrow the time range", maxRows),
 	})
+}
+
+// tagRef pairs a resolved column index with its tag name.
+type tagRef struct {
+	idx  int
+	name string
+}
+
+// latestGroup accumulates the row indexes sharing one tag combination.
+type latestGroup struct {
+	sortValues []string
+	display    []string
+	rows       []int
+}
+
+// splitLatestFrames splits latest-values results into one frame per distinct
+// tag combination so panels such as Gauge and Stat render a separate series
+// for every group. Every column is kept in each frame; the frame name carries
+// the tag identity (e.g. "CNC-001") so field labels are left empty to avoid
+// duplication in display names. It returns nil when splitting does not apply.
+func splitLatestFrames(plans []columnPlan, opts FrameOptions) []*data.Frame {
+	if opts.SplitByTag != nil && !*opts.SplitByTag {
+		return nil
+	}
+	if opts.Mode != "latest" || len(opts.Tags) == 0 || len(plans) == 0 || len(plans[0].values) == 0 {
+		return nil
+	}
+
+	refs := make([]tagRef, 0, len(opts.Tags))
+	for _, tag := range opts.Tags {
+		idx := findColumnFold(plans, tag)
+		if idx < 0 {
+			return nil
+		}
+		refs = append(refs, tagRef{idx: idx, name: plans[idx].name})
+	}
+
+	rowCount := len(plans[0].values)
+	groups := make(map[string]*latestGroup, rowCount)
+	keys := make([]string, 0, rowCount)
+	for row := 0; row < rowCount; row++ {
+		g := &latestGroup{}
+		for _, ref := range refs {
+			value := planValueString(plans[ref.idx].values[row])
+			g.sortValues = append(g.sortValues, value)
+			g.display = append(g.display, ref.name+"="+value)
+		}
+		key := strings.Join(g.sortValues, "\x1f")
+		if existing, ok := groups[key]; ok {
+			existing.rows = append(existing.rows, row)
+			continue
+		}
+		g.rows = append(g.rows, row)
+		groups[key] = g
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+
+	frames := make([]*data.Frame, 0, len(keys))
+	for _, key := range keys {
+		g := groups[key]
+		name := g.display[0][strings.IndexByte(g.display[0], '=')+1:]
+		if len(refs) > 1 {
+			name = strings.Join(g.display, ", ")
+		}
+		frame := data.NewFrame(name)
+		for i := range plans {
+			plan := plans[i]
+			plan.values = pickRows(plan.values, g.rows)
+			frame.Fields = append(frame.Fields, buildField(plan))
+		}
+		frames = append(frames, frame)
+	}
+	return frames
+}
+
+func findColumnFold(plans []columnPlan, name string) int {
+	for i := range plans {
+		if strings.EqualFold(plans[i].name, name) {
+			return i
+		}
+	}
+	return -1
+}
+
+func planValueString(v any) string {
+	if v == nil {
+		return ""
+	}
+	switch s := v.(type) {
+	case string:
+		return s
+	case []byte:
+		return string(s)
+	default:
+		return fmt.Sprint(v)
+	}
+}
+
+func pickRows(values []any, rows []int) []any {
+	out := make([]any, len(rows))
+	for i, row := range rows {
+		out[i] = values[row]
+	}
+	return out
 }
 
 func kindForOID(oid uint32) columnKind {

@@ -25,6 +25,8 @@ export interface KwdbQuery extends DataQuery {
   interpolateMode?: 'linear' | 'PREV' | 'NEXT' | 'constant' | 'NULL';
   // Latest values
   latestFunc?: 'last' | 'last_row' | 'first' | 'first_row';
+  // Latest values: split results into one frame per tag combination (default true)
+  splitByTag?: boolean;
   // Window / event
   windowType?: 'TIME_WINDOW' | 'SESSION_WINDOW' | 'EVENT_WINDOW' | 'COUNT_WINDOW' | 'STATE_WINDOW';
   windowInterval?: string;

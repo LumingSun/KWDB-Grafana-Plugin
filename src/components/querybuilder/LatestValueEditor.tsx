@@ -1,5 +1,5 @@
 import React from 'react';
-import { Button, InlineField, Select, VerticalGroup } from '@grafana/ui';
+import { Alert, Button, InlineField, InlineFieldRow, InlineSwitch, Select, VerticalGroup } from '@grafana/ui';
 
 import type { KwdbDataSource } from '../../datasource';
 import { buildSql } from '../../sqlBuilder';
@@ -21,6 +21,7 @@ interface Props {
 
 export function LatestValueEditor({ datasource, query, onChange }: Props) {
   const columns = useTableColumns(datasource, query.table);
+  const splitByTag = query.splitByTag ?? true;
 
   const updateQuery = (patch: Partial<KwdbQuery>) => {
     const next = { ...query, ...patch };
@@ -53,16 +54,31 @@ export function LatestValueEditor({ datasource, query, onChange }: Props) {
           onChange={(timeColumn) => updateQuery({ timeColumn })}
         />
       </InlineField>
-      <InlineField label="Latest function" labelWidth={12}>
-        <Select<NonNullable<KwdbQuery['latestFunc']>>
-          aria-label="Latest function"
-          options={LATEST_FUNCS.map((func) => ({ label: func, value: func }))}
-          value={query.latestFunc ?? 'last'}
-          onChange={(item) => updateQuery({ latestFunc: item.value ?? 'last' })}
-          width={20}
-          menuShouldPortal={false}
-        />
-      </InlineField>
+      <InlineFieldRow>
+        <InlineField label="Latest function" labelWidth={16}>
+          <Select<NonNullable<KwdbQuery['latestFunc']>>
+            aria-label="Latest function"
+            options={LATEST_FUNCS.map((func) => ({ label: func, value: func }))}
+            value={query.latestFunc ?? 'last'}
+            onChange={(item) => updateQuery({ latestFunc: item.value ?? 'last' })}
+            width={20}
+            menuShouldPortal={false}
+          />
+        </InlineField>
+        {(query.tags?.length ?? 0) > 0 && (
+          <InlineField
+            label="Split per tag"
+            labelWidth={14}
+            tooltip="Split results into one series per tag combination. Disable to return one merged table frame."
+          >
+            <InlineSwitch
+              aria-label="Split per tag"
+              value={splitByTag}
+              onChange={(event) => updateQuery({ splitByTag: event.currentTarget.checked })}
+            />
+          </InlineField>
+        )}
+      </InlineFieldRow>
       <InlineField label="Tags" labelWidth={12}>
         <ColumnPicker columns={columns} value={query.tags ?? []} onChange={(tags) => updateQuery({ tags })} />
       </InlineField>
@@ -89,6 +105,18 @@ export function LatestValueEditor({ datasource, query, onChange }: Props) {
           </Button>
         </VerticalGroup>
       </InlineField>
+      {(query.tags?.length ?? 0) > 0 &&
+        (splitByTag ? (
+          <Alert severity="info" title="One series per tag value" aria-label="Latest values splitting hint">
+            Results are split into one series per tag combination, so Stat and Gauge panels show every device
+            separately. Disable "Split per tag" to return a single merged table frame.
+          </Alert>
+        ) : (
+          <Alert severity="info" title="Merged table frame" aria-label="Latest values merging hint">
+            All tag combinations are returned as one merged frame. Enable "Split per tag" so Stat and Gauge panels
+            show every device separately.
+          </Alert>
+        ))}
       <SqlPreview sql={query.rawSql ?? ''} />
     </VerticalGroup>
   );
