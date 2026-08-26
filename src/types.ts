@@ -51,6 +51,11 @@ export interface KwdbDataSourceOptions extends DataSourceJsonData {
   user?: string;
   sslMode?: 'disable' | 'require' | 'verify-ca' | 'verify-full';
   sslRootCert?: string;
+  // Connection pool options; durations are expressed in seconds.
+  maxConns?: number;
+  maxConnLifetime?: number;
+  maxConnIdleTime?: number;
+  connectTimeout?: number;
 }
 
 export interface KwdbSecureJsonData {
@@ -68,4 +73,12 @@ export interface ColumnInfo {
 export interface TableInfo {
   name: string;
   type: string;
+}
+
+// Template variable query: either built by the variable query editor or parsed
+// from a raw query string like `tag_values(table, column)`.
+export interface KwdbVariableQuery {
+  queryType: 'tagValues' | 'tables' | 'columns';
+  table?: string;
+  column?: string;
 }

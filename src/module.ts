@@ -2,6 +2,7 @@ import { DataSourcePlugin } from '@grafana/data';
 
 import { ConfigEditor } from './components/ConfigEditor';
 import { QueryEditor } from './components/QueryEditor';
+import { VariableQueryEditor } from './components/VariableQueryEditor';
 import { KwdbDataSource } from './datasource';
 import { KwdbDataSourceOptions, KwdbQuery, KwdbSecureJsonData } from './types';
 
@@ -9,4 +10,5 @@ export const plugin = new DataSourcePlugin<KwdbDataSource, KwdbQuery, KwdbDataSo
   KwdbDataSource
 )
   .setConfigEditor(ConfigEditor)
-  .setQueryEditor(QueryEditor);
+  .setQueryEditor(QueryEditor)
+  .setVariableQueryEditor(VariableQueryEditor);

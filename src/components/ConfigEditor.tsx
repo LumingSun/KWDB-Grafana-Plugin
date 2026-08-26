@@ -1,10 +1,12 @@
 import React, { ChangeEvent } from 'react';
-import { InlineField, Input, SecretInput, Select, VerticalGroup } from '@grafana/ui';
+import { InlineField, InlineFieldRow, Input, SecretInput, Select, VerticalGroup } from '@grafana/ui';
 import { DataSourcePluginOptionsEditorProps } from '@grafana/data';
 
 import { KwdbDataSourceOptions, KwdbSecureJsonData } from '../types';
 
 type Props = DataSourcePluginOptionsEditorProps<KwdbDataSourceOptions, KwdbSecureJsonData>;
+
+type NumericJsonDataField = 'maxConns' | 'maxConnLifetime' | 'maxConnIdleTime' | 'connectTimeout';
 
 const SSL_MODE_OPTIONS: Array<{ label: string; value: NonNullable<KwdbDataSourceOptions['sslMode']> }> = [
   { label: 'disable', value: 'disable' },
@@ -50,6 +52,14 @@ export function ConfigEditor(props: Props) {
 
   const onSslRootCertChange = (event: ChangeEvent<HTMLInputElement>) => {
     updateJsonData({ sslRootCert: event.target.value });
+  };
+
+  const onNumericChange = (field: NumericJsonDataField) => (event: ChangeEvent<HTMLInputElement>) => {
+    const value = event.target.value;
+    const parsed = Number(value);
+    updateJsonData({
+      [field]: value === '' || Number.isNaN(parsed) ? undefined : parsed,
+    } as Partial<KwdbDataSourceOptions>);
   };
 
   const onPasswordChange = (event: ChangeEvent<HTMLInputElement>) => {
@@ -139,6 +149,66 @@ export function ConfigEditor(props: Props) {
           onChange={onPasswordChange}
         />
       </InlineField>
+      <InlineFieldRow>
+        <InlineField
+          label="Max connections"
+          labelWidth={16}
+          tooltip="Maximum number of database connections in the pool (default: 8)"
+        >
+          <Input
+            id="config-editor-max-conns"
+            type="number"
+            value={jsonData.maxConns ?? ''}
+            onChange={onNumericChange('maxConns')}
+            placeholder="8"
+            width={12}
+          />
+        </InlineField>
+        <InlineField
+          label="Connect timeout (s)"
+          labelWidth={18}
+          tooltip="Connection timeout in seconds (default: 5)"
+        >
+          <Input
+            id="config-editor-connect-timeout"
+            type="number"
+            value={jsonData.connectTimeout ?? ''}
+            onChange={onNumericChange('connectTimeout')}
+            placeholder="5"
+            width={12}
+          />
+        </InlineField>
+      </InlineFieldRow>
+      <InlineFieldRow>
+        <InlineField
+          label="Max lifetime (s)"
+          labelWidth={16}
+          tooltip="Maximum connection lifetime in seconds (default: 3600)"
+        >
+          <Input
+            id="config-editor-max-conn-lifetime"
+            type="number"
+            value={jsonData.maxConnLifetime ?? ''}
+            onChange={onNumericChange('maxConnLifetime')}
+            placeholder="3600"
+            width={12}
+          />
+        </InlineField>
+        <InlineField
+          label="Max idle time (s)"
+          labelWidth={18}
+          tooltip="Maximum idle time in seconds (default: 900)"
+        >
+          <Input
+            id="config-editor-max-conn-idle-time"
+            type="number"
+            value={jsonData.maxConnIdleTime ?? ''}
+            onChange={onNumericChange('maxConnIdleTime')}
+            placeholder="900"
+            width={12}
+          />
+        </InlineField>
+      </InlineFieldRow>
     </VerticalGroup>
   );
 }

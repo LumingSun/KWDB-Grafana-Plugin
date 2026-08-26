@@ -77,6 +77,29 @@ func TestCheckHealthNilPool(t *testing.T) {
 	}
 }
 
+func TestResolveFormatDefaultsToTimeSeriesForBuilderModes(t *testing.T) {
+	cases := []struct {
+		mode   string
+		format string
+		want   string
+	}{
+		{"downsampling", "", "time_series"},
+		{"gapfill", "", "time_series"},
+		{"latest", "", "time_series"},
+		{"window", "", "time_series"},
+		{"downsampling", "table", "table"},
+		{"latest", "time_series", "time_series"},
+		{"raw", "", ""},
+		{"raw", "table", "table"},
+		{"raw", "time_series", "time_series"},
+	}
+	for _, tc := range cases {
+		if got := resolveFormat(tc.mode, tc.format); got != tc.want {
+			t.Errorf("resolveFormat(%q, %q) = %q, want %q", tc.mode, tc.format, got, tc.want)
+		}
+	}
+}
+
 func TestCallResourceNilHandler(t *testing.T) {
 	ds := Datasource{}
 	err := ds.CallResource(context.Background(), &backend.CallResourceRequest{}, backend.CallResourceResponseSenderFunc(func(*backend.CallResourceResponse) error {

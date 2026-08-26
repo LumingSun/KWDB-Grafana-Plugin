@@ -42,6 +42,7 @@ func newMetadataHandler(querier rowQuerier, database string) backend.CallResourc
 	h := &metadataHandler{querier: querier, database: database}
 	mux.HandleFunc("/tables", h.handleTables)
 	mux.HandleFunc("/columns", h.handleColumns)
+	mux.HandleFunc("/tag-values", h.handleTagValues)
 	return httpadapter.New(mux)
 }
 
@@ -92,10 +93,23 @@ func (h *metadataHandler) handleColumns(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	rows, err := h.querier.Query(r.Context(), fmt.Sprintf("SHOW CREATE TABLE %s.%s", quoteIdent(h.database), quoteIdent(table)))
+	infos, err := h.loadTableColumns(r.Context(), table)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
+	}
+	if infos == nil {
+		infos = []ColumnInfo{}
+	}
+	writeJSON(w, infos)
+}
+
+// loadTableColumns reads SHOW CREATE TABLE output for the given table and returns the parsed
+// column metadata. It is shared by /columns and /tag-values.
+func (h *metadataHandler) loadTableColumns(ctx context.Context, table string) ([]ColumnInfo, error) {
+	rows, err := h.querier.Query(ctx, fmt.Sprintf("SHOW CREATE TABLE %s.%s", quoteIdent(h.database), quoteIdent(table)))
+	if err != nil {
+		return nil, err
 	}
 	defer rows.Close()
 
@@ -103,8 +117,7 @@ func (h *metadataHandler) handleColumns(w http.ResponseWriter, r *http.Request) 
 	for rows.Next() {
 		values, err := rows.Values()
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
+			return nil, err
 		}
 		for _, v := range values {
 			if s, ok := v.(string); ok && strings.Contains(strings.ToUpper(s), "CREATE TABLE") {
@@ -117,18 +130,75 @@ func (h *metadataHandler) handleColumns(w http.ResponseWriter, r *http.Request) 
 		}
 	}
 	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	if ddl == "" {
+		return nil, fmt.Errorf("could not read SHOW CREATE TABLE output")
+	}
+	return parseDDL(ddl), nil
+}
+
+func (h *metadataHandler) handleTagValues(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+
+	table := r.URL.Query().Get("table")
+	if table == "" {
+		http.Error(w, "missing table query parameter", http.StatusBadRequest)
+		return
+	}
+	column := r.URL.Query().Get("column")
+	if column == "" {
+		http.Error(w, "missing column query parameter", http.StatusBadRequest)
+		return
+	}
+
+	infos, err := h.loadTableColumns(r.Context(), table)
+	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	if ddl == "" {
-		http.Error(w, "could not read SHOW CREATE TABLE output", http.StatusInternalServerError)
+	isTag := false
+	for _, info := range infos {
+		if info.Name == column && info.IsTag {
+			isTag = true
+			break
+		}
+	}
+	if !isTag {
+		http.Error(w, fmt.Sprintf("column %q of table %q is not a tag column", column, table), http.StatusBadRequest)
 		return
 	}
-	infos := parseDDL(ddl)
-	if infos == nil {
-		infos = []ColumnInfo{}
+
+	sql := fmt.Sprintf(
+		"SELECT DISTINCT %s FROM %s.%s ORDER BY %s",
+		quoteIdent(column), quoteIdent(h.database), quoteIdent(table), quoteIdent(column),
+	)
+	rows, err := h.querier.Query(r.Context(), sql)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
-	writeJSON(w, infos)
+	defer rows.Close()
+
+	values := []string{}
+	for rows.Next() {
+		row, err := rows.Values()
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		if len(row) > 0 && row[0] != nil {
+			values = append(values, fmt.Sprint(row[0]))
+		}
+	}
+	if err := rows.Err(); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	writeJSON(w, values)
 }
 
 func writeJSON(w http.ResponseWriter, v any) {

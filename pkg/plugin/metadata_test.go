@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/jackc/pgx/v5"
@@ -199,5 +200,169 @@ func TestColumnsResourceUnparseableDDL(t *testing.T) {
 	}
 	if string(resp.Body) != "[]\n" {
 		t.Fatalf("body = %q, want []", resp.Body)
+	}
+}
+
+func TestTagValuesResource(t *testing.T) {
+	ddl := `CREATE TABLE iot_db.sensors (
+    ts TIMESTAMPTZ NOT NULL,
+    temperature DOUBLE
+) TAGS (
+    device_id VARCHAR(100) NOT NULL
+) PRIMARY TAGS (device_id)`
+
+	var capturedSQL string
+	handler := newMetadataHandler(&fakeQuerier{
+		fn: func(ctx context.Context, sql string, args ...any) (pgx.Rows, error) {
+			if strings.HasPrefix(sql, "SELECT DISTINCT") {
+				capturedSQL = sql
+				return &mockRows{rows: [][]any{{"CNC-001"}, {"CNC-002"}, {"INJ-001"}}}, nil
+			}
+			return &mockRows{rows: [][]any{{"sensors", ddl}}}, nil
+		},
+	}, "iot_db")
+
+	resp := callResource(t, handler, "/tag-values?table=sensors&column=device_id")
+	if resp.Status != 200 {
+		t.Fatalf("status = %d, body = %s", resp.Status, resp.Body)
+	}
+	var values []string
+	if err := json.Unmarshal(resp.Body, &values); err != nil {
+		t.Fatal(err)
+	}
+	if len(values) != 3 || values[0] != "CNC-001" || values[1] != "CNC-002" || values[2] != "INJ-001" {
+		t.Errorf("unexpected tag values: %#v", values)
+	}
+	wantSQL := `SELECT DISTINCT "device_id" FROM "iot_db"."sensors" ORDER BY "device_id"`
+	if capturedSQL != wantSQL {
+		t.Errorf("sql = %q, want %q", capturedSQL, wantSQL)
+	}
+}
+
+func TestTagValuesNonStringTags(t *testing.T) {
+	ddl := `CREATE TABLE iot_db.sensors (
+    ts TIMESTAMPTZ NOT NULL,
+    temperature DOUBLE
+) TAGS (
+    device_id INT NOT NULL
+) PRIMARY TAGS (device_id)`
+
+	handler := newMetadataHandler(&fakeQuerier{
+		fn: func(ctx context.Context, sql string, args ...any) (pgx.Rows, error) {
+			if strings.HasPrefix(sql, "SELECT DISTINCT") {
+				return &mockRows{rows: [][]any{{int64(101)}, {int64(202)}}}, nil
+			}
+			return &mockRows{rows: [][]any{{"sensors", ddl}}}, nil
+		},
+	}, "iot_db")
+
+	resp := callResource(t, handler, "/tag-values?table=sensors&column=device_id")
+	if resp.Status != 200 {
+		t.Fatalf("status = %d, body = %s", resp.Status, resp.Body)
+	}
+	var values []string
+	if err := json.Unmarshal(resp.Body, &values); err != nil {
+		t.Fatal(err)
+	}
+	if len(values) != 2 || values[0] != "101" || values[1] != "202" {
+		t.Errorf("unexpected tag values: %#v", values)
+	}
+}
+
+func TestTagValuesEmptyResult(t *testing.T) {
+	ddl := `CREATE TABLE iot_db.sensors (
+    ts TIMESTAMPTZ NOT NULL,
+    temperature DOUBLE
+) TAGS (
+    device_id INT NOT NULL
+) PRIMARY TAGS (device_id)`
+
+	handler := newMetadataHandler(&fakeQuerier{
+		fn: func(ctx context.Context, sql string, args ...any) (pgx.Rows, error) {
+			if strings.HasPrefix(sql, "SELECT DISTINCT") {
+				return &mockRows{}, nil
+			}
+			return &mockRows{rows: [][]any{{"sensors", ddl}}}, nil
+		},
+	}, "iot_db")
+
+	resp := callResource(t, handler, "/tag-values?table=sensors&column=device_id")
+	if resp.Status != 200 {
+		t.Fatalf("status = %d, body = %s", resp.Status, resp.Body)
+	}
+	if string(resp.Body) != "[]\n" {
+		t.Fatalf("body = %q, want []", resp.Body)
+	}
+}
+
+func TestTagValuesMissingParams(t *testing.T) {
+	handler := newMetadataHandler(&fakeQuerier{}, "defaultdb")
+
+	resp := callResource(t, handler, "/tag-values?table=sensors")
+	if resp.Status != 400 {
+		t.Fatalf("status = %d, want 400", resp.Status)
+	}
+	resp = callResource(t, handler, "/tag-values?column=device_id")
+	if resp.Status != 400 {
+		t.Fatalf("status = %d, want 400", resp.Status)
+	}
+}
+
+func TestTagValuesNotATagColumn(t *testing.T) {
+	ddl := `CREATE TABLE iot_db.sensors (
+    ts TIMESTAMPTZ NOT NULL,
+    temperature DOUBLE
+) TAGS (
+    device_id INT NOT NULL
+) PRIMARY TAGS (device_id)`
+
+	handler := newMetadataHandler(&fakeQuerier{
+		fn: func(ctx context.Context, sql string, args ...any) (pgx.Rows, error) {
+			return &mockRows{rows: [][]any{{"sensors", ddl}}}, nil
+		},
+	}, "iot_db")
+
+	// temperature exists but is not a tag; unknown does not exist at all.
+	for _, column := range []string{"temperature", "unknown"} {
+		resp := callResource(t, handler, "/tag-values?table=sensors&column="+column)
+		if resp.Status != 400 {
+			t.Fatalf("column %s: status = %d, want 400", column, resp.Status)
+		}
+	}
+}
+
+func TestTagValuesTableNotFound(t *testing.T) {
+	handler := newMetadataHandler(&fakeQuerier{
+		fn: func(ctx context.Context, sql string, args ...any) (pgx.Rows, error) {
+			return nil, errors.New(`relation "iot_db.missing" does not exist`)
+		},
+	}, "iot_db")
+
+	resp := callResource(t, handler, "/tag-values?table=missing&column=device_id")
+	if resp.Status != 500 {
+		t.Fatalf("status = %d, want 500", resp.Status)
+	}
+}
+
+func TestTagValuesQueryError(t *testing.T) {
+	ddl := `CREATE TABLE iot_db.sensors (
+    ts TIMESTAMPTZ NOT NULL,
+    temperature DOUBLE
+) TAGS (
+    device_id INT NOT NULL
+) PRIMARY TAGS (device_id)`
+
+	handler := newMetadataHandler(&fakeQuerier{
+		fn: func(ctx context.Context, sql string, args ...any) (pgx.Rows, error) {
+			if strings.HasPrefix(sql, "SELECT DISTINCT") {
+				return nil, errors.New("connection refused")
+			}
+			return &mockRows{rows: [][]any{{"sensors", ddl}}}, nil
+		},
+	}, "iot_db")
+
+	resp := callResource(t, handler, "/tag-values?table=sensors&column=device_id")
+	if resp.Status != 500 {
+		t.Fatalf("status = %d, want 500", resp.Status)
 	}
 }
