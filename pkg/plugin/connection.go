@@ -21,11 +21,12 @@ const (
 	defaultUser     = "root"
 	defaultSSLMode  = "disable"
 
-	poolMaxConns        = 8
-	poolMinConns        = 0
-	poolMaxConnLifetime = time.Hour
-	poolMaxConnIdleTime = 15 * time.Minute
-	poolConnectTimeout  = 5 * time.Second
+	// Connection pool defaults; durations are expressed in seconds.
+	defaultPoolMaxConns        = 8
+	poolMinConns               = 0
+	defaultPoolMaxConnLifetime = 3600 // 1h
+	defaultPoolMaxConnIdleTime = 900  // 15min
+	defaultPoolConnectTimeout  = 5
 )
 
 // NewDatasource creates a datasource instance with a KWDB pgx connection pool.
@@ -40,11 +41,11 @@ func NewDatasource(ctx context.Context, settings backend.DataSourceInstanceSetti
 	if err != nil {
 		return nil, fmt.Errorf("could not parse pgx connection string: %w", err)
 	}
-	poolCfg.MaxConns = poolMaxConns
+	poolCfg.MaxConns = int32(cfg.MaxConns)
 	poolCfg.MinConns = poolMinConns
-	poolCfg.MaxConnLifetime = poolMaxConnLifetime
-	poolCfg.MaxConnIdleTime = poolMaxConnIdleTime
-	poolCfg.ConnConfig.ConnectTimeout = poolConnectTimeout
+	poolCfg.MaxConnLifetime = time.Duration(cfg.MaxConnLifetime) * time.Second
+	poolCfg.MaxConnIdleTime = time.Duration(cfg.MaxConnIdleTime) * time.Second
+	poolCfg.ConnConfig.ConnectTimeout = time.Duration(cfg.ConnectTimeout) * time.Second
 
 	pool, err := pgxpool.NewWithConfig(ctx, poolCfg)
 	if err != nil {
@@ -72,6 +73,18 @@ func applyDefaults(cfg *models.DataSourceSettings) {
 	}
 	if cfg.SSLMode == "" {
 		cfg.SSLMode = defaultSSLMode
+	}
+	if cfg.MaxConns <= 0 {
+		cfg.MaxConns = defaultPoolMaxConns
+	}
+	if cfg.MaxConnLifetime <= 0 {
+		cfg.MaxConnLifetime = defaultPoolMaxConnLifetime
+	}
+	if cfg.MaxConnIdleTime <= 0 {
+		cfg.MaxConnIdleTime = defaultPoolMaxConnIdleTime
+	}
+	if cfg.ConnectTimeout <= 0 {
+		cfg.ConnectTimeout = defaultPoolConnectTimeout
 	}
 }
 

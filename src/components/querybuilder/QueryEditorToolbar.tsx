@@ -27,6 +27,7 @@ function defaultsForMode(query: KwdbQuery, mode: KwdbQueryMode): Partial<KwdbQue
     case 'gapfill':
       return {
         mode,
+        format: query.format ?? 'time_series',
         interval: query.interval ?? '5m',
         interpolateMode: query.interpolateMode ?? 'linear',
         metrics,
@@ -34,12 +35,14 @@ function defaultsForMode(query: KwdbQuery, mode: KwdbQueryMode): Partial<KwdbQue
     case 'latest':
       return {
         mode,
+        format: query.format ?? 'time_series',
         latestFunc: query.latestFunc ?? 'last',
         metrics: query.metrics?.length ? query.metrics : [{ column: '', aggregation: 'none' }],
       };
     case 'window':
       return {
         mode,
+        format: query.format ?? 'time_series',
         windowType: query.windowType ?? 'TIME_WINDOW',
         windowInterval: query.windowInterval ?? '1h',
         metrics,
@@ -50,6 +53,7 @@ function defaultsForMode(query: KwdbQuery, mode: KwdbQueryMode): Partial<KwdbQue
     default:
       return {
         mode,
+        format: query.format ?? 'time_series',
         interval: query.interval ?? '5m',
         metrics,
       };
@@ -86,7 +90,11 @@ export function QueryEditorToolbar({ query, onChange }: Props) {
           menuShouldPortal={false}
         />
       </InlineField>
-      <InlineField label="Format" labelWidth={10}>
+      <InlineField
+        label="Format"
+        labelWidth={10}
+        tooltip="Time series: one series per tag value (best for chart panels like Time series, Stat, Gauge). Table: raw rows (best for the Table panel)."
+      >
         <Select<KwdbQueryFormat>
           aria-label="Format"
           options={FORMAT_OPTIONS}

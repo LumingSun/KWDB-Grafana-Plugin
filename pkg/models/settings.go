@@ -15,6 +15,12 @@ type DataSourceSettings struct {
 	User        string `json:"user"`
 	SSLMode     string `json:"sslMode"`
 	SSLRootCert string `json:"sslRootCert"`
+
+	// Connection pool options; durations are expressed in seconds.
+	MaxConns        int `json:"maxConns"`        // default 8
+	MaxConnLifetime int `json:"maxConnLifetime"` // default 3600 (1h)
+	MaxConnIdleTime int `json:"maxConnIdleTime"` // default 900 (15min)
+	ConnectTimeout  int `json:"connectTimeout"`  // default 5
 }
 
 // SecretDataSourceSettings holds the password from DecryptedSecureJSONData.

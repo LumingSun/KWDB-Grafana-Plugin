@@ -26,6 +26,17 @@ type Datasource struct {
 	handler backend.CallResourceHandler
 }
 
+// resolveFormat returns the effective output format for a query. Builder
+// modes (downsampling/gapfill/latest/window) default to time series when the
+// format was never persisted; raw SQL keeps whatever was sent so non-time
+// table queries keep working.
+func resolveFormat(mode, format string) string {
+	if format != "" || mode == "raw" {
+		return format
+	}
+	return "time_series"
+}
+
 // QueryData handles multiple queries and returns one response per query.
 func (d *Datasource) QueryData(ctx context.Context, req *backend.QueryDataRequest) (*backend.QueryDataResponse, error) {
 	return concurrent.QueryData(ctx, req, d.handleQuery, 10)
@@ -53,7 +64,7 @@ func (d *Datasource) query(ctx context.Context, query backend.DataQuery) backend
 		return backend.DataResponse{Error: err, ErrorSource: backend.ErrorSourceDownstream}
 	}
 	frames, err := RowsToFrames(rows, FrameOptions{
-		Format:     qm.Format,
+		Format:     resolveFormat(qm.Mode, qm.Format),
 		Mode:       qm.Mode,
 		TimeColumn: qm.TimeColumn,
 		Tags:       qm.Tags,

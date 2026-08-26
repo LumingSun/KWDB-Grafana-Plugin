@@ -233,14 +233,21 @@ queries use the same backend query pipeline and read-only SQL enforcement.
 
 ## Output formats
 
-Each query returns one of two formats:
+Each query returns one of two formats, selectable in the query editor toolbar
+(builder modes default to **Time series** when the value was never set):
 
 - **Time series**: the backend finds the time column, sorts by time, converts
-  tag columns into labels, and produces a wide time-series frame.
-- **Table**: the result is returned as a long table frame. Latest-values
-  queries with tag columns return one frame per tag combination by default,
-  so every device becomes its own series for Gauge/Stat panels. Disable
-  the **Split per tag** toggle to return a single merged table frame.
+  tag columns into labels, and produces a wide time-series frame with one
+  series per tag combination. Choose this for chart panels such as **Time
+  series**, **Stat**, and **Gauge** so every device is drawn separately.
+- **Table**: the result is returned as raw rows (long format). Choose this for
+  the **Table** panel. Latest-values queries with tag columns additionally
+  return one frame per tag combination by default, so Gauge/Stat panels still
+  show one value per device; disable the **Split per tag** toggle to return a
+  single merged table frame.
+
+**Raw SQL** queries keep the format you set explicitly; when it is left unset
+a raw query returns its rows as a table so non-time queries keep working.
 
 Result rows are capped at 100,000 rows per frame. When the cap is reached, the
 frame includes a warning notice.
